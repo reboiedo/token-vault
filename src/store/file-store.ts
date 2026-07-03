@@ -31,6 +31,7 @@ import type {
   TokenDoc,
   TokenValue,
 } from "../core/types";
+import type { GeneratorDef } from "../core/types";
 import { computeGeneratedForCollection } from "../core/generators";
 import { resolveDerivationToHex } from "../core/derivation";
 import { getTailwindHex } from "../core/tailwind-colors";
@@ -40,6 +41,7 @@ import {
   type AliasResolvable,
   type SurfacesConfig,
 } from "../core/surfaces-utils";
+import { rewriteRefs } from "./rewrite-refs";
 
 export interface LoadIssue {
   file: string;
@@ -58,6 +60,9 @@ export class DesignSystemError extends Error {
 
 export class FileStore extends EventEmitter {
   private system!: SystemDoc;
+  /** Source documents as decoded from disk (no generated tokens). */
+  private source: CollectionDoc[] = [];
+  /** Recomputed view: source + generated tokens, what consumers see. */
   private collections: CollectionDoc[] = [];
   private rev = 0;
   private watcher: FSWatcher | null = null;
@@ -161,6 +166,7 @@ export class FileStore extends EventEmitter {
     if (issues.length) throw new DesignSystemError(issues);
 
     this.system = system;
+    this.source = collections;
     this.collections = this.recompute(system, collections);
     this.rev++;
     this.emit("change", this.snapshot());
@@ -300,15 +306,342 @@ export class FileStore extends EventEmitter {
     await fs.rename(tmp, file);
   }
 
+  private static stableJson(v: unknown): string {
+    return `${JSON.stringify(v, null, 2)}\n`;
+  }
+
   async persist(): Promise<void> {
-    const stable = (v: unknown) => `${JSON.stringify(v, null, 2)}\n`;
-    await this.writeFile(this.systemPath(), stable(encodeSystem(this.system)));
-    for (const c of this.collections) {
+    await this.writeFile(
+      this.systemPath(),
+      FileStore.stableJson(encodeSystem(this.system))
+    );
+    for (const c of this.source) {
       await this.writeFile(
         this.collectionPath(c.name),
-        stable(encodeCollection(c))
+        FileStore.stableJson(encodeCollection(c))
       );
     }
+  }
+
+  // ==========================================================================
+  // MUTATIONS — all funnel through `commit`, which recomputes the view,
+  // persists only touched files, bumps rev and notifies subscribers.
+  // ==========================================================================
+
+  private findSource(collection: string): CollectionDoc {
+    const c = this.source.find((c) => c.name === collection);
+    if (!c) throw new Error(`Unknown collection "${collection}"`);
+    return c;
+  }
+
+  private replaceSource(next: CollectionDoc): void {
+    this.source = this.source.map((c) => (c.name === next.name ? next : c));
+  }
+
+  private async commit(
+    touched: Iterable<string>,
+    opts: { system?: boolean } = {}
+  ): Promise<void> {
+    this.collections = this.recompute(this.system, this.source);
+    this.rev++;
+    if (opts.system) {
+      await this.writeFile(
+        this.systemPath(),
+        FileStore.stableJson(encodeSystem(this.system))
+      );
+    }
+    for (const name of new Set(touched)) {
+      const c = this.source.find((c) => c.name === name);
+      if (c) {
+        await this.writeFile(
+          this.collectionPath(name),
+          FileStore.stableJson(encodeCollection(c))
+        );
+      }
+    }
+    this.emit("change", this.snapshot());
+  }
+
+  /** Every source token name in the system (names are identity). */
+  private allSourceNames(): Set<string> {
+    const names = new Set<string>();
+    for (const c of this.source) for (const t of c.tokens) names.add(t.name);
+    return names;
+  }
+
+  private assertNameFree(name: string): void {
+    if (this.allSourceNames().has(name)) {
+      throw new Error(`Token "${name}" already exists`);
+    }
+  }
+
+  async createToken(p: {
+    collection: string;
+    token: TokenDoc;
+    index?: number;
+  }): Promise<void> {
+    this.assertNameFree(p.token.name);
+    const c = this.findSource(p.collection);
+    const tokens = [...c.tokens];
+    tokens.splice(p.index ?? tokens.length, 0, p.token);
+    this.replaceSource({ ...c, tokens });
+    await this.commit([p.collection]);
+  }
+
+  async updateToken(p: {
+    name: string;
+    values?: Record<string, TokenValue>;
+    type?: TokenDoc["type"];
+    description?: string;
+  }): Promise<void> {
+    const c = this.source.find((c) => c.tokens.some((t) => t.name === p.name));
+    if (!c) throw new Error(`Unknown token "${p.name}"`);
+    this.replaceSource({
+      ...c,
+      tokens: c.tokens.map((t) =>
+        t.name === p.name
+          ? {
+              ...t,
+              ...(p.values ? { values: p.values } : {}),
+              ...(p.type !== undefined ? { type: p.type } : {}),
+              ...(p.description !== undefined
+                ? { description: p.description }
+                : {}),
+            }
+          : t
+      ),
+    });
+    await this.commit([c.name]);
+  }
+
+  async removeToken(p: { name: string }): Promise<void> {
+    const c = this.source.find((c) => c.tokens.some((t) => t.name === p.name));
+    if (!c) throw new Error(`Unknown token "${p.name}"`);
+    this.replaceSource({
+      ...c,
+      tokens: c.tokens.filter((t) => t.name !== p.name),
+    });
+    await this.commit([c.name]);
+  }
+
+  /**
+   * Rename a token and cascade the rename through every reference in
+   * every collection (values + surfaces configs).
+   */
+  async renameToken(p: { name: string; newName: string }): Promise<void> {
+    if (p.name === p.newName) return;
+    this.assertNameFree(p.newName);
+    const owner = this.source.find((c) =>
+      c.tokens.some((t) => t.name === p.name)
+    );
+    if (!owner) throw new Error(`Unknown token "${p.name}"`);
+
+    const renames = new Map([[p.name, p.newName]]);
+    const { collections, touched } = rewriteRefs(this.source, renames);
+    this.source = collections.map((c) =>
+      c.name === owner.name
+        ? {
+            ...c,
+            tokens: c.tokens.map((t) =>
+              t.name === p.name ? { ...t, name: p.newName } : t
+            ),
+          }
+        : c
+    );
+    touched.add(owner.name);
+    await this.commit(touched);
+  }
+
+  /** Rename a dotted prefix ("brand" → "core.brand") across a collection. */
+  async renameGroup(p: {
+    collection: string;
+    oldPrefix: string;
+    newPrefix: string;
+  }): Promise<void> {
+    if (p.oldPrefix === p.newPrefix) return;
+    const c = this.findSource(p.collection);
+    const renames = new Map<string, string>();
+    for (const t of c.tokens) {
+      if (t.name === p.oldPrefix || t.name.startsWith(`${p.oldPrefix}.`)) {
+        renames.set(t.name, p.newPrefix + t.name.slice(p.oldPrefix.length));
+      }
+    }
+    if (renames.size === 0) return;
+    for (const newName of renames.values()) this.assertNameFree(newName);
+
+    const { collections, touched } = rewriteRefs(this.source, renames);
+    this.source = collections.map((col) =>
+      col.name === p.collection
+        ? {
+            ...col,
+            tokens: col.tokens.map((t) =>
+              renames.has(t.name) ? { ...t, name: renames.get(t.name)! } : t
+            ),
+            ...(col.groupOrder
+              ? {
+                  groupOrder: col.groupOrder.map((g) =>
+                    g === p.oldPrefix ? p.newPrefix : g
+                  ),
+                }
+              : {}),
+          }
+        : col
+    );
+    touched.add(p.collection);
+    await this.commit(touched);
+  }
+
+  /** Reorder a collection's source tokens to the given name order. */
+  async reorderTokens(p: {
+    collection: string;
+    names: string[];
+  }): Promise<void> {
+    const c = this.findSource(p.collection);
+    const byName = new Map(c.tokens.map((t) => [t.name, t]));
+    const ordered: TokenDoc[] = [];
+    for (const name of p.names) {
+      const t = byName.get(name);
+      if (t) {
+        ordered.push(t);
+        byName.delete(name);
+      }
+    }
+    ordered.push(...byName.values()); // anything unlisted keeps tail order
+    this.replaceSource({ ...c, tokens: ordered });
+    await this.commit([p.collection]);
+  }
+
+  async addMode(p: { collection: string; mode: string }): Promise<void> {
+    const c = this.findSource(p.collection);
+    if (c.modes.includes(p.mode)) throw new Error(`Mode "${p.mode}" exists`);
+    this.replaceSource({ ...c, modes: [...c.modes, p.mode] });
+    await this.commit([p.collection]);
+  }
+
+  async renameMode(p: {
+    collection: string;
+    oldName: string;
+    newName: string;
+  }): Promise<void> {
+    const c = this.findSource(p.collection);
+    if (!c.modes.includes(p.oldName))
+      throw new Error(`Unknown mode "${p.oldName}"`);
+    if (c.modes.includes(p.newName))
+      throw new Error(`Mode "${p.newName}" exists`);
+    const renameKey = <V,>(rec: Record<string, V>): Record<string, V> =>
+      Object.fromEntries(
+        Object.entries(rec).map(([k, v]) => [
+          k === p.oldName ? p.newName : k,
+          v,
+        ])
+      );
+    const surfaces = c.surfacesConfig as SurfacesConfig | undefined;
+    this.replaceSource({
+      ...c,
+      modes: c.modes.map((m) => (m === p.oldName ? p.newName : m)),
+      tokens: c.tokens.map((t) => ({ ...t, values: renameKey(t.values) })),
+      ...(surfaces
+        ? {
+            surfacesConfig: {
+              ...surfaces,
+              surfaces: surfaces.surfaces.map((s) => ({
+                ...s,
+                baseByMode: renameKey(s.baseByMode),
+                ...(s.fgByMode ? { fgByMode: renameKey(s.fgByMode) } : {}),
+              })),
+            },
+          }
+        : {}),
+    });
+    await this.commit([p.collection]);
+  }
+
+  async reorderModes(p: { collection: string; modes: string[] }): Promise<void> {
+    const c = this.findSource(p.collection);
+    if ([...p.modes].sort().join() !== [...c.modes].sort().join()) {
+      throw new Error("Reordered modes must match the existing set");
+    }
+    this.replaceSource({ ...c, modes: p.modes });
+    await this.commit([p.collection]);
+  }
+
+  async updateGroupOrder(p: {
+    collection: string;
+    groupOrder: string[];
+  }): Promise<void> {
+    const c = this.findSource(p.collection);
+    this.replaceSource({ ...c, groupOrder: p.groupOrder });
+    await this.commit([p.collection]);
+  }
+
+  async addGenerator(p: {
+    collection: string;
+    generator: GeneratorDef;
+  }): Promise<void> {
+    const c = this.findSource(p.collection);
+    this.replaceSource({
+      ...c,
+      generators: [...(c.generators ?? []), p.generator],
+    });
+    await this.commit([p.collection]);
+  }
+
+  async updateGeneratorConfig(p: {
+    collection: string;
+    generatorId: string;
+    config: GeneratorDef["config"];
+    groupPrefix?: string;
+  }): Promise<void> {
+    const c = this.findSource(p.collection);
+    if (!c.generators?.some((g) => g.id === p.generatorId)) {
+      throw new Error(`Unknown generator "${p.generatorId}"`);
+    }
+    this.replaceSource({
+      ...c,
+      generators: c.generators.map((g) =>
+        g.id === p.generatorId
+          ? {
+              ...g,
+              config: p.config,
+              ...(p.groupPrefix !== undefined
+                ? { groupPrefix: p.groupPrefix }
+                : {}),
+            }
+          : g
+      ),
+    });
+    await this.commit([p.collection]);
+  }
+
+  async removeGenerator(p: {
+    collection: string;
+    generatorId: string;
+  }): Promise<void> {
+    const c = this.findSource(p.collection);
+    this.replaceSource({
+      ...c,
+      generators: (c.generators ?? []).filter((g) => g.id !== p.generatorId),
+    });
+    await this.commit([p.collection]);
+  }
+
+  async updateSurfacesConfig(p: {
+    collection: string;
+    config: SurfacesConfig | null;
+  }): Promise<void> {
+    const c = this.findSource(p.collection);
+    this.replaceSource({ ...c, surfacesConfig: p.config ?? undefined });
+    await this.commit([p.collection]);
+  }
+
+  async updateSystem(p: {
+    fluid?: SystemDoc["fluid"];
+    useTailwindColors?: boolean;
+    exportLayout?: SystemDoc["exportLayout"];
+    name?: string;
+  }): Promise<void> {
+    this.system = { ...this.system, ...p };
+    await this.commit([], { system: true });
   }
 
   // ==========================================================================

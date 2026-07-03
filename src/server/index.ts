@@ -31,6 +31,49 @@ export async function startServer(store: FileStore, opts: ServerOptions) {
     c.json({ ok: true, rev: store.snapshot().rev })
   );
 
+  // Mutation RPC. Methods map 1:1 to FileStore mutation methods; the
+  // response is the fresh snapshot so the caller can apply it without
+  // waiting for the WS broadcast.
+  const MUTATIONS = [
+    "createToken",
+    "updateToken",
+    "removeToken",
+    "renameToken",
+    "renameGroup",
+    "reorderTokens",
+    "addMode",
+    "renameMode",
+    "reorderModes",
+    "updateGroupOrder",
+    "addGenerator",
+    "updateGeneratorConfig",
+    "removeGenerator",
+    "updateSurfacesConfig",
+    "updateSystem",
+  ] as const;
+  type MutationMethod = (typeof MUTATIONS)[number];
+
+  app.post("/api/rpc", async (c) => {
+    const body = (await c.req.json()) as {
+      method: MutationMethod;
+      params: unknown;
+    };
+    if (!MUTATIONS.includes(body.method)) {
+      return c.json({ error: `Unknown method "${body.method}"` }, 400);
+    }
+    try {
+      await (
+        store[body.method] as (p: unknown) => Promise<void>
+      )(body.params);
+      return c.json({ ok: true, snapshot: store.snapshot() });
+    } catch (err) {
+      return c.json(
+        { error: err instanceof Error ? err.message : String(err) },
+        422
+      );
+    }
+  });
+
   const appDir =
     opts.appDir ??
     path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../app");

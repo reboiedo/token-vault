@@ -10,10 +10,19 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useSyncExternalStore,
 } from "react";
-import type { CollectionDoc, SystemSnapshot } from "@core/types";
+import type {
+  CollectionDoc,
+  GeneratorDef,
+  SystemDoc,
+  SystemSnapshot,
+  TokenDoc,
+  TokenValue,
+} from "@core/types";
+import type { SurfacesConfig } from "@core/surfaces-utils";
 
 type Listener = () => void;
 
@@ -62,6 +71,15 @@ class SnapshotClient {
   };
 
   getSnapshot = () => this.snapshot;
+
+  /** Apply an RPC response snapshot (rev-guarded, same as WS frames). */
+  applySnapshot(snapshot: SystemSnapshot) {
+    if (!this.snapshot || snapshot.rev >= this.snapshot.rev) {
+      this.snapshot = snapshot;
+      this.serverError = null;
+      this.notify();
+    }
+  }
 }
 
 const StoreContext = createContext<SnapshotClient | null>(null);
@@ -113,4 +131,77 @@ export function useServerError(): string | null {
   const client = useClient();
   const subscribe = useCallback(client.subscribe, [client]);
   return useSyncExternalStore(subscribe, () => client.serverError);
+}
+
+// ============================================================================
+// MUTATIONS — token-vault's replacement for Convex's useMutation. Each
+// action POSTs /api/rpc; the response snapshot is applied immediately
+// (localhost RTT makes optimistic updates unnecessary). Errors throw so
+// callers can toast/inline them.
+// ============================================================================
+
+async function rpc(client: SnapshotClient, method: string, params: unknown) {
+  const res = await fetch("/api/rpc", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ method, params }),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? `RPC ${method} failed`);
+  client.applySnapshot(body.snapshot);
+}
+
+export interface Actions {
+  createToken(p: { collection: string; token: TokenDoc; index?: number }): Promise<void>;
+  updateToken(p: {
+    name: string;
+    values?: Record<string, TokenValue>;
+    type?: TokenDoc["type"];
+    description?: string;
+  }): Promise<void>;
+  removeToken(p: { name: string }): Promise<void>;
+  renameToken(p: { name: string; newName: string }): Promise<void>;
+  renameGroup(p: { collection: string; oldPrefix: string; newPrefix: string }): Promise<void>;
+  reorderTokens(p: { collection: string; names: string[] }): Promise<void>;
+  addMode(p: { collection: string; mode: string }): Promise<void>;
+  renameMode(p: { collection: string; oldName: string; newName: string }): Promise<void>;
+  reorderModes(p: { collection: string; modes: string[] }): Promise<void>;
+  updateGroupOrder(p: { collection: string; groupOrder: string[] }): Promise<void>;
+  addGenerator(p: { collection: string; generator: GeneratorDef }): Promise<void>;
+  updateGeneratorConfig(p: {
+    collection: string;
+    generatorId: string;
+    config: GeneratorDef["config"];
+    groupPrefix?: string;
+  }): Promise<void>;
+  removeGenerator(p: { collection: string; generatorId: string }): Promise<void>;
+  updateSurfacesConfig(p: { collection: string; config: SurfacesConfig | null }): Promise<void>;
+  updateSystem(p: Partial<Pick<SystemDoc, "fluid" | "useTailwindColors" | "exportLayout" | "name">>): Promise<void>;
+}
+
+export function useActions(): Actions {
+  const client = useClient();
+  return useMemo(() => {
+    const make =
+      <P,>(method: string) =>
+      (params: P) =>
+        rpc(client, method, params);
+    return {
+      createToken: make("createToken"),
+      updateToken: make("updateToken"),
+      removeToken: make("removeToken"),
+      renameToken: make("renameToken"),
+      renameGroup: make("renameGroup"),
+      reorderTokens: make("reorderTokens"),
+      addMode: make("addMode"),
+      renameMode: make("renameMode"),
+      reorderModes: make("reorderModes"),
+      updateGroupOrder: make("updateGroupOrder"),
+      addGenerator: make("addGenerator"),
+      updateGeneratorConfig: make("updateGeneratorConfig"),
+      removeGenerator: make("removeGenerator"),
+      updateSurfacesConfig: make("updateSurfacesConfig"),
+      updateSystem: make("updateSystem"),
+    } satisfies Actions;
+  }, [client]);
 }
