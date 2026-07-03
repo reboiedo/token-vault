@@ -33,12 +33,10 @@ import type {
 } from "../core/types";
 import type { GeneratorDef } from "../core/types";
 import { computeGeneratedForCollection } from "../core/generators";
-import { resolveDerivationToHex } from "../core/derivation";
-import { getTailwindHex } from "../core/tailwind-colors";
+import { buildResolver } from "../core/resolve";
 import {
   generateSurfaceTokens,
   makeResolveScaleStep,
-  type AliasResolvable,
   type SurfacesConfig,
 } from "../core/surfaces-utils";
 import { rewriteRefs } from "./rewrite-refs";
@@ -187,71 +185,17 @@ export class FileStore extends EventEmitter {
       return { ...c, tokens: [...generated, ...source] };
     });
 
-    // 2. Global name → token index for reference resolution.
-    const byName = new Map<string, { token: TokenDoc; modes: string[] }>();
-    for (const c of withGenerated) {
-      for (const t of c.tokens) byName.set(t.name, { token: t, modes: c.modes });
-    }
-
-    // Resolve a token ref to a raw string value for a mode (color hex,
-    // dimension, …), walking aliases / derivations / tailwind refs.
-    const resolveRaw = (
-      ref: string,
-      mode: string | undefined,
-      visiting: Set<string>
-    ): string | null => {
-      if (visiting.has(ref)) return null;
-      visiting.add(ref);
-      const entry = byName.get(ref);
-      if (!entry) return null;
-      const { token } = entry;
-      const value: TokenValue | undefined =
-        (mode ? token.values[mode] : undefined) ??
-        token.values["default"] ??
-        Object.values(token.values)[0];
-      if (!value) return null;
-      switch (value.type) {
-        case "raw":
-          return String(value.value);
-        case "alias":
-          return resolveRaw(value.token, mode, visiting);
-        case "tailwind":
-          return getTailwindHex(value.color);
-        case "derived":
-          try {
-            return resolveDerivationToHex(value.base, value.ops, (r) =>
-              resolveRaw(r, mode, visiting)
-            );
-          } catch {
-            return null;
-          }
-        default:
-          return null; // expression/composite: not color-resolvable
-      }
-    };
+    // 2. Global resolver over source + generated tokens.
+    const resolver = buildResolver(withGenerated);
 
     // 3. Surfaces materialization per themes collection.
     return withGenerated.map((c) => {
       const surfaces = c.surfacesConfig as SurfacesConfig | undefined;
       if (!surfaces || surfaces.surfaces.length === 0) return c;
 
-      const aliasOptions: AliasResolvable[] = [...byName.entries()].map(
-        ([name]) => {
-          const resolvedByMode: Record<string, string> = {};
-          for (const mode of c.modes) {
-            const hex = resolveRaw(name, mode, new Set());
-            if (hex) resolvedByMode[mode] = hex;
-          }
-          return {
-            name,
-            resolvedValue: resolveRaw(name, undefined, new Set()) ?? undefined,
-            resolvedByMode,
-          };
-        }
-      );
-
+      const aliasOptions = resolver.aliasOptions(c.modes);
       const resolveBaseHex = (ref: string, mode?: string) =>
-        resolveRaw(ref, mode, new Set());
+        resolver.resolveRaw(ref, mode);
       const resolveScaleStep = makeResolveScaleStep(aliasOptions);
 
       const surfaceTokens = generateSurfaceTokens(
