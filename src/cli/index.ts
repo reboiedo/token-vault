@@ -12,6 +12,7 @@
 import { Command } from "commander";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { FileStore, DesignSystemError } from "../store/file-store";
 import { startServer } from "../server/index";
 
@@ -24,6 +25,12 @@ program
   );
 
 const resolveDir = (dir: string) => path.resolve(process.cwd(), dir);
+
+// Package root works from BOTH layouts: src/cli/index.ts (tsx, dev)
+// and dist/cli/index.js (built) sit two levels below it. The editor
+// SPA is always the Vite build at <root>/dist/app.
+const PKG_ROOT = fileURLToPath(new URL("../..", import.meta.url));
+const APP_DIR = path.join(PKG_ROOT, "dist", "app");
 
 function reportLoadError(err: unknown): never {
   if (err instanceof DesignSystemError) {
@@ -65,7 +72,7 @@ program
     });
 
     const port = Number(opts.port);
-    await startServer(store, { port });
+    await startServer(store, { port, appDir: APP_DIR });
     const url = `http://localhost:${port}`;
     console.log(`● token-vault dev — ${url}`);
     console.log(`  watching ${path.relative(process.cwd(), dir)}/`);
