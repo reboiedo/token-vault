@@ -1,0 +1,10 @@
+{
+  "name": "Demo",
+  "fluid": {
+    "viewport": { "minWidth": 360, "maxWidth": 1440 },
+    "breakpoints": [810, 1280]
+  },
+  "useTailwindColors": true,
+  "exportLayout": "single",
+  "collections": ["core", "semantic"]
+}

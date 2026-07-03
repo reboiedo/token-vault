@@ -1,0 +1,83 @@
+{
+  "name": "core",
+  "modes": ["default"],
+  "generators": [
+    {
+      "id": "g-color",
+      "type": "color",
+      "groupPrefix": "color",
+      "config": {
+        "type": "color",
+        "colorScaleConfig": {
+          "steps": ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"],
+          "families": [
+            {
+              "name": "blue",
+              "lightness": { "curve": "ease-out", "start": 0.97, "end": 0.25 },
+              "chroma": { "curve": "ease-in-out", "start": 0.025, "end": 0.09 },
+              "hue": { "curve": "linear", "start": 264, "end": 264 }
+            },
+            {
+              "name": "orange",
+              "lightness": { "curve": "ease-out", "start": 0.97, "end": 0.25 },
+              "chroma": { "curve": "ease-in-out", "start": 0.025, "end": 0.09 },
+              "hue": { "curve": "linear", "start": 60, "end": 60 }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "g-spacing",
+      "type": "spacing",
+      "groupPrefix": "space",
+      "config": {
+        "type": "spacing",
+        "spacingConfig": {
+          "baseMin": 16,
+          "baseMax": 24,
+          "unit": "rem",
+          "prefix": "space",
+          "includePairs": true,
+          "customPairs": [],
+          "steps": [
+            { "name": "xs", "multiplier": 0.75 },
+            { "name": "s", "multiplier": 1 },
+            { "name": "m", "multiplier": 1.5 },
+            { "name": "l", "multiplier": 2 }
+          ]
+        }
+      }
+    }
+  ],
+  "tokens": [
+    { "name": "container", "type": "dimension", "values": { "default": "72rem" } },
+    {
+      "name": "container.narrow",
+      "type": "dimension",
+      "values": { "default": { "$expr": "container * 0.75" } }
+    },
+    {
+      "name": "brand.accent",
+      "type": "color",
+      "values": { "default": "{color.blue.600}" }
+    },
+    {
+      "name": "brand.hover",
+      "type": "color",
+      "values": {
+        "default": {
+          "$derive": {
+            "base": { "kind": "token", "token": "brand.accent" },
+            "ops": [{ "op": "shift", "stepStrength": 0.4 }]
+          }
+        }
+      }
+    },
+    {
+      "name": "brand.muted",
+      "type": "color",
+      "values": { "default": { "$tw": "slate-500" } }
+    }
+  ]
+}

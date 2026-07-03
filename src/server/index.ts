@@ -1,0 +1,88 @@
+/**
+ * Local dev server: serves the editor SPA, exposes the snapshot over
+ * REST + WebSocket, and (from F2) accepts mutations.
+ *
+ *   GET  /api/snapshot   → SystemSnapshot (JSON)
+ *   WS   /ws             → { type: "snapshot", rev, data } on connect
+ *                          and on every store change
+ *   GET  /*              → static editor app (dist/app)
+ */
+
+import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { Hono } from "hono";
+import { WebSocketServer, WebSocket } from "ws";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import type { FileStore } from "../store/file-store";
+
+export interface ServerOptions {
+  port: number;
+  /** Absolute path to the built SPA (dist/app). */
+  appDir?: string;
+}
+
+export async function startServer(store: FileStore, opts: ServerOptions) {
+  const app = new Hono();
+
+  app.get("/api/snapshot", (c) => c.json(store.snapshot()));
+
+  app.get("/api/health", (c) =>
+    c.json({ ok: true, rev: store.snapshot().rev })
+  );
+
+  const appDir =
+    opts.appDir ??
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../app");
+  app.use(
+    "/*",
+    serveStatic({
+      root: path.relative(process.cwd(), appDir),
+      rewriteRequestPath: (p) => (p === "/" ? "/index.html" : p),
+    })
+  );
+
+  const server = serve({ fetch: app.fetch, port: opts.port });
+
+  // WebSocket: push the full snapshot on connect and on every change.
+  const wss = new WebSocketServer({ noServer: true });
+  server.addListener("upgrade", (req, socket, head) => {
+    if (req.url === "/ws") {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit("connection", ws, req);
+      });
+    } else {
+      socket.destroy();
+    }
+  });
+
+  const send = (ws: WebSocket) => {
+    const snapshot = store.snapshot();
+    ws.send(
+      JSON.stringify({ type: "snapshot", rev: snapshot.rev, data: snapshot })
+    );
+  };
+  wss.on("connection", (ws) => send(ws));
+  store.on("change", () => {
+    for (const ws of wss.clients) {
+      if (ws.readyState === WebSocket.OPEN) send(ws);
+    }
+  });
+  store.on("error", (err) => {
+    for (const ws of wss.clients) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({ type: "error", message: String(err?.message ?? err) })
+        );
+      }
+    }
+  });
+
+  return {
+    close: async () => {
+      wss.close();
+      server.close();
+      await store.close();
+    },
+  };
+}
