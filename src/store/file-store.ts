@@ -39,7 +39,11 @@ import {
   makeResolveScaleStep,
   type SurfacesConfig,
 } from "../core/surfaces-utils";
-import { rewriteRefs } from "./rewrite-refs";
+import {
+  collectSurfacesRefs,
+  collectValueRefs,
+  rewriteRefs,
+} from "./rewrite-refs";
 
 export interface LoadIssue {
   file: string;
@@ -235,6 +239,37 @@ export class FileStore extends EventEmitter {
 
   snapshot(): SystemSnapshot {
     return { system: this.system, collections: this.collections, rev: this.rev };
+  }
+
+  /**
+   * Scan every source reference against the recomputed view's names
+   * (source + generated). Dangling refs = corruption risk — surfaced by
+   * `token-vault check` with a non-zero exit for CI.
+   */
+  findDanglingRefs(): Array<{ owner: string; ref: string }> {
+    const known = new Set<string>();
+    for (const c of this.collections)
+      for (const t of c.tokens) known.add(t.name);
+
+    const out: Array<{ owner: string; ref: string }> = [];
+    for (const c of this.source) {
+      for (const t of c.tokens) {
+        for (const value of Object.values(t.values)) {
+          for (const ref of collectValueRefs(value)) {
+            if (!known.has(ref)) out.push({ owner: t.name, ref });
+          }
+        }
+      }
+      const surfaces = c.surfacesConfig as SurfacesConfig | undefined;
+      if (surfaces) {
+        for (const ref of collectSurfacesRefs(surfaces)) {
+          if (!known.has(ref)) {
+            out.push({ owner: `${c.name} surfacesConfig`, ref });
+          }
+        }
+      }
+    }
+    return out;
   }
 
   // ==========================================================================

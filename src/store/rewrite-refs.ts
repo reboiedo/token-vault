@@ -218,6 +218,104 @@ export function rewriteSurfacesConfig(
 }
 
 // ============================================================================
+// REF COLLECTION — the read-side twin of the rewriters, used by
+// `token-vault check` to find dangling references.
+// ============================================================================
+
+export function collectValueRefs(value: TokenValue): string[] {
+  switch (value.type) {
+    case "raw":
+    case "tailwind":
+      return [];
+    case "alias":
+      return [value.token];
+    case "derived": {
+      const refs: string[] = [];
+      if (value.base.kind === "token") refs.push(value.base.token);
+      for (const op of value.ops) {
+        if (op.op === "mix") refs.push(op.with);
+        if (op.op === "autoContrast") {
+          if (op.light) refs.push(op.light);
+          if (op.dark) refs.push(op.dark);
+        }
+      }
+      return refs;
+    }
+    case "expression":
+      try {
+        // Lazy import avoided: parseExpression is pure and cheap.
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        return parseExpressionIdentifiers(value.formula);
+      } catch {
+        return [];
+      }
+    case "composite": {
+      const layers = Array.isArray(value.layers)
+        ? value.layers
+        : [value.layers];
+      return layers.flatMap((l) =>
+        Object.values(l)
+          .filter((s) => s.type === "alias")
+          .map((s) => (s as { token: string }).token)
+      );
+    }
+  }
+}
+
+import { parseExpression } from "../core/expression";
+function parseExpressionIdentifiers(formula: string): string[] {
+  return parseExpression(formula).identifiers;
+}
+
+export function collectSurfacesRefs(config: SurfacesConfig): string[] {
+  const refs: string[] = [];
+  const anchor = (a: SurfaceLevelAnchor) => {
+    if (a.kind === "alias") refs.push(a.token);
+  };
+  for (const s of config.surfaces) {
+    for (const b of Object.values(s.baseByMode)) {
+      if (b.kind === "alias") refs.push(b.token);
+      if (b.kind === "derived") {
+        if (b.base.kind === "token") refs.push(b.base.token);
+        for (const op of b.ops) {
+          if (op.op === "mix") refs.push(op.with);
+        }
+      }
+    }
+    for (const f of Object.values(s.fgByMode ?? {})) {
+      if (f.kind === "alias") refs.push(f.token);
+    }
+  }
+  for (const l of config.levels) {
+    const rule = l.rule;
+    if (rule.kind === "fg") {
+      for (const br of [rule.onLight, rule.onDark]) {
+        anchor(br.anchor);
+        if ("target" in br && br.measureAgainst?.kind === "alias") {
+          refs.push(br.measureAgainst.token);
+        }
+      }
+    } else if (rule.kind === "surface-shift") {
+      for (const br of [rule.onLight, rule.onDark]) {
+        if (br.mixWith && "token" in br.mixWith) refs.push(br.mixWith.token);
+      }
+    } else if (rule.kind === "surface-mix") {
+      anchor(rule.onLight.anchor);
+      anchor(rule.onDark.anchor);
+    } else if (rule.kind === "opacity") {
+      if (typeof rule.source === "object" && rule.source.kind === "alias") {
+        refs.push(rule.source.token);
+      }
+    } else if (rule.kind === "scale-step") {
+      for (const br of [rule.onLight, rule.onDark]) {
+        if (br.scale?.kind === "alias") refs.push(br.scale.token);
+      }
+    }
+  }
+  return refs;
+}
+
+// ============================================================================
 // WHOLE-SYSTEM REWRITE
 // ============================================================================
 

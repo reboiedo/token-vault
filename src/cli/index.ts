@@ -88,6 +88,34 @@ program
   });
 
 program
+  .command("init")
+  .description("Scaffold a design-system/ folder in the current repo")
+  .option("-d, --dir <dir>", "target folder", "design-system")
+  .option("-n, --name <name>", "design system name")
+  .action(async (opts: { dir: string; name?: string }) => {
+    const fs = await import("node:fs/promises");
+    const dir = resolveDir(opts.dir);
+    try {
+      await fs.access(dir);
+      console.error(`✖ ${opts.dir}/ already exists — aborting.`);
+      process.exit(1);
+    } catch {
+      // Doesn't exist — good.
+    }
+    const template = path.join(PKG_ROOT, "templates", "design-system");
+    await fs.cp(template, dir, { recursive: true });
+    const name = opts.name ?? path.basename(process.cwd());
+    const systemFile = path.join(dir, "system.json");
+    const system = (await fs.readFile(systemFile, "utf8")).replace(
+      "__NAME__",
+      name
+    );
+    await fs.writeFile(systemFile, system);
+    console.log(`✓ created ${opts.dir}/ ("${name}")`);
+    console.log(`  next: npx token-vault dev -d ${opts.dir}`);
+  });
+
+program
   .command("check")
   .description("Validate the design system source files")
   .option("-d, --dir <dir>", "design system folder", "design-system")
@@ -99,6 +127,11 @@ program
         (n, c) => n + c.tokens.length,
         0
       );
+      const dangling = store.findDanglingRefs();
+      for (const d of dangling) {
+        console.error(`✖ ${d.owner}: unresolvable reference "${d.ref}"`);
+      }
+      if (dangling.length) process.exit(1);
       console.log(
         `✓ ${snapshot.collections.length} collection(s), ${total} token(s) — OK`
       );

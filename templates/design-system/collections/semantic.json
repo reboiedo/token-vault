@@ -1,0 +1,75 @@
+{
+  "name": "semantic",
+  "modes": ["light", "dark"],
+  "surfacesConfig": {
+    "contrastThreshold": 0.6,
+    "surfaces": [
+      {
+        "id": "s-bg",
+        "name": "bg",
+        "materializeBase": true,
+        "bareLevels": true,
+        "baseByMode": {
+          "light": { "kind": "raw", "value": "#ffffff" },
+          "dark": { "kind": "raw", "value": "#0a0a0a" }
+        }
+      },
+      {
+        "id": "s-brand",
+        "name": "surface.brand",
+        "materializeBase": true,
+        "baseByMode": {
+          "light": { "kind": "alias", "token": "color.blue.600" },
+          "dark": { "kind": "alias", "token": "color.blue.400" }
+        }
+      }
+    ],
+    "levels": [
+      {
+        "id": "l-fg",
+        "name": "fg",
+        "rule": {
+          "kind": "fg",
+          "onLight": { "target": { "kind": "apca", "lc": 90 }, "anchor": { "kind": "auto" } },
+          "onDark": { "target": { "kind": "apca", "lc": 90 }, "anchor": { "kind": "auto" } }
+        }
+      },
+      {
+        "id": "l-muted",
+        "name": "fg-muted",
+        "rule": {
+          "kind": "fg",
+          "onLight": { "target": { "kind": "apca", "lc": 60 }, "anchor": { "kind": "auto" } },
+          "onDark": { "target": { "kind": "apca", "lc": 60 }, "anchor": { "kind": "auto" } }
+        }
+      },
+      {
+        "id": "l-border",
+        "name": "border",
+        "display": "separator",
+        "rule": {
+          "kind": "fg",
+          "onLight": { "target": { "kind": "apca", "lc": 18 }, "anchor": { "kind": "auto" } },
+          "onDark": { "target": { "kind": "apca", "lc": 18 }, "anchor": { "kind": "auto" } }
+        }
+      },
+      {
+        "id": "l-hover",
+        "name": "hover",
+        "display": "bg",
+        "rule": {
+          "kind": "surface-shift",
+          "onLight": { "stepStrength": 0.3 },
+          "onDark": { "stepStrength": 0.3 }
+        }
+      }
+    ]
+  },
+  "tokens": [
+    {
+      "name": "focus-ring",
+      "type": "color",
+      "values": { "light": "{color.blue.500}", "dark": "{color.blue.300}" }
+    }
+  ]
+}
