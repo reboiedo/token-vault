@@ -13,8 +13,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ColorScaleEditor } from "@/components/color-scale-editor";
 import {
-  ColorScaleEditor,
   SpacingScaleEditor,
   TypographyScaleEditor,
 } from "@/components/scale-editors";
