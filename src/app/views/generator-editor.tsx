@@ -14,10 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ColorScaleEditor } from "@/components/color-scale-editor";
-import {
-  SpacingScaleEditor,
-  TypographyScaleEditor,
-} from "@/components/scale-editors";
+import { SpacingScaleEditor } from "@/components/spacing-scale-editor";
+import { TypographyScaleEditor } from "@/components/scale-editors";
 import type { CollectionDoc, GeneratorDef } from "@core/types";
 import { useActions, useSystem } from "@/lib/store";
 import { cn } from "@/lib/utils";

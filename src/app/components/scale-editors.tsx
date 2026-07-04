@@ -16,17 +16,7 @@ import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import {
-  generateSpacingScale,
   generateTypeScale,
-  type SpacingScaleConfig,
   type TypeScaleConfig,
   type ViewportConfig,
 } from "@core/fluid-utils";
@@ -76,127 +66,6 @@ function SaveBar({
       <Button size="sm" variant="ghost" className="h-7" onClick={onDiscard}>
         Discard
       </Button>
-    </div>
-  );
-}
-
-// ============================================================================
-// SPACING SCALE
-// ============================================================================
-
-export function SpacingScaleEditor({
-  initialConfig,
-  viewport,
-  onSave,
-}: {
-  initialConfig: SpacingScaleConfig;
-  viewport: ViewportConfig;
-  onSave: (config: SpacingScaleConfig) => void | Promise<void>;
-}) {
-  const [config, setConfig] = useState(initialConfig);
-  const dirty = useMemo(
-    () => JSON.stringify(config) !== JSON.stringify(initialConfig),
-    [config, initialConfig]
-  );
-  const preview = useMemo(() => {
-    try {
-      return generateSpacingScale(config, viewport);
-    } catch {
-      return [];
-    }
-  }, [config, viewport]);
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <Num
-          label="base min"
-          value={config.baseMin}
-          step={1}
-          onChange={(baseMin) => setConfig({ ...config, baseMin })}
-        />
-        <Num
-          label="base max"
-          value={config.baseMax}
-          step={1}
-          onChange={(baseMax) => setConfig({ ...config, baseMax })}
-        />
-        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          pairs
-          <Switch
-            checked={config.includePairs}
-            onCheckedChange={(includePairs) =>
-              setConfig({ ...config, includePairs })
-            }
-          />
-        </label>
-        <SaveBar
-          dirty={dirty}
-          onSave={() => void onSave(config)}
-          onDiscard={() => setConfig(initialConfig)}
-        />
-      </div>
-      <div className="space-y-1">
-        {config.steps.map((step, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <Input
-              value={step.name}
-              onChange={(e) =>
-                setConfig({
-                  ...config,
-                  steps: config.steps.map((s, j) =>
-                    j === i ? { ...s, name: e.target.value } : s
-                  ),
-                })
-              }
-              className="h-7 w-20 font-mono text-xs"
-            />
-            <Num
-              label="×"
-              value={step.multiplier}
-              step={0.25}
-              onChange={(multiplier) =>
-                setConfig({
-                  ...config,
-                  steps: config.steps.map((s, j) =>
-                    j === i ? { ...s, multiplier } : s
-                  ),
-                })
-              }
-            />
-            <code className="flex-1 truncate text-[11px] text-muted-foreground">
-              {preview.find((p) => p.name === `${config.prefix}.${step.name}`)
-                ?.value ?? ""}
-            </code>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() =>
-                setConfig({
-                  ...config,
-                  steps: config.steps.filter((_, j) => j !== i),
-                })
-              }
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-        ))}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-xs text-muted-foreground"
-          onClick={() =>
-            setConfig({
-              ...config,
-              steps: [...config.steps, { name: "new", multiplier: 1 }],
-            })
-          }
-        >
-          <Plus className="h-3 w-3" /> Add step
-        </Button>
-      </div>
     </div>
   );
 }
