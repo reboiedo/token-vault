@@ -1,7 +1,7 @@
 /**
- * F1 shell: collection nav + read-only token table over the live
- * snapshot. The full editors (token table with editing, scale editors,
- * surfaces) port over in F2/F3 on top of the same store hooks.
+ * Editor shell: collection nav + per-collection tabs (Tokens /
+ * Generators / Surfaces). All state flows from the WS snapshot; all
+ * edits flow through /api/rpc (see lib/store.tsx).
  */
 
 import { useState } from "react";
@@ -12,7 +12,12 @@ import {
   useServerError,
   useSystem,
 } from "./lib/store";
-import type { TokenValue } from "@core/types";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TokenTableView } from "./views/token-table";
+import { GeneratorEditorView } from "./views/generator-editor";
+import { SurfacesEditorView } from "./views/surfaces-editor";
+import type { SurfacesConfig } from "@core/surfaces-utils";
+import { cn } from "@/lib/utils";
 
 export function App() {
   return (
@@ -20,29 +25,6 @@ export function App() {
       <Shell />
     </StoreProvider>
   );
-}
-
-function describeValue(v: TokenValue): { label: string; swatch?: string } {
-  switch (v.type) {
-    case "raw": {
-      const s = String(v.value);
-      return { label: s, swatch: s.startsWith("#") ? s : undefined };
-    }
-    case "alias":
-      return { label: `{${v.token}}` };
-    case "tailwind":
-      return { label: `tw:${v.color}` };
-    case "derived":
-      return { label: `derived (${v.ops.length} ops)` };
-    case "expression":
-      return { label: `= ${v.formula}` };
-    case "composite":
-      return {
-        label: Array.isArray(v.layers)
-          ? `composite ×${v.layers.length}`
-          : "composite",
-      };
-  }
 }
 
 function Shell() {
@@ -54,15 +36,18 @@ function Shell() {
 
   if (!system) {
     return (
-      <div className="flex h-screen items-center justify-center text-sm text-neutral-500">
+      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
         Connecting to token-vault…
       </div>
     );
   }
 
+  const hasSurfaces = !!(active?.surfacesConfig as SurfacesConfig | undefined);
+  const hasGenerators = (active?.generators?.length ?? 0) > 0;
+
   return (
     <div className="flex h-screen font-sans text-sm">
-      <aside className="w-56 shrink-0 border-r border-neutral-200 p-3 space-y-1">
+      <aside className="w-56 shrink-0 space-y-1 border-r p-3">
         <h1 className="px-2 pb-2 font-semibold tracking-tight">
           {system.name}
         </h1>
@@ -70,12 +55,13 @@ function Shell() {
           <button
             key={c.name}
             onClick={() => setSelected(c.name)}
-            className={`block w-full rounded px-2 py-1 text-left hover:bg-neutral-100 ${
-              active?.name === c.name ? "bg-neutral-100 font-medium" : ""
-            }`}
+            className={cn(
+              "block w-full rounded px-2 py-1 text-left transition hover:bg-accent",
+              active?.name === c.name && "bg-accent font-medium"
+            )}
           >
             {c.name}
-            <span className="ml-1 text-xs text-neutral-400">
+            <span className="ml-1 text-xs text-muted-foreground">
               {c.tokens.length}
             </span>
           </button>
@@ -84,71 +70,43 @@ function Shell() {
 
       <main className="flex-1 overflow-auto p-4">
         {serverError && (
-          <div className="mb-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-red-800">
+          <div className="mb-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
             {serverError}
           </div>
         )}
         {active ? (
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-neutral-400">
-                <th className="border-b border-neutral-200 py-1.5 pr-4">
-                  Token
-                </th>
-                {active.modes.map((m) => (
-                  <th key={m} className="border-b border-neutral-200 py-1.5 pr-4">
-                    {m}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {active.tokens.map((t) => (
-                <tr key={t.name} className="align-top">
-                  <td className="border-b border-neutral-100 py-1.5 pr-4 font-mono text-xs">
-                    {t.name}
-                    {t.generated && (
-                      <span className="ml-2 rounded bg-amber-100 px-1 text-[10px] text-amber-700">
-                        gen
-                      </span>
-                    )}
-                  </td>
-                  {active.modes.map((mode) => {
-                    const value = t.values[mode] ?? t.values["default"];
-                    if (!value) {
-                      return (
-                        <td
-                          key={mode}
-                          className="border-b border-neutral-100 py-1.5 pr-4 text-neutral-300"
-                        >
-                          —
-                        </td>
-                      );
-                    }
-                    const { label, swatch } = describeValue(value);
-                    return (
-                      <td
-                        key={mode}
-                        className="border-b border-neutral-100 py-1.5 pr-4 font-mono text-xs"
-                      >
-                        <span className="inline-flex items-center gap-1.5">
-                          {swatch && (
-                            <span
-                              className="h-3.5 w-3.5 rounded border border-neutral-200"
-                              style={{ background: swatch }}
-                            />
-                          )}
-                          {label}
-                        </span>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Tabs defaultValue="tokens" key={active.name}>
+            <TabsList className="mb-3">
+              <TabsTrigger value="tokens">Tokens</TabsTrigger>
+              <TabsTrigger value="generators">
+                Generators
+                {hasGenerators && (
+                  <span className="ml-1 text-[10px] text-muted-foreground">
+                    {active.generators!.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="surfaces">
+                Surfaces
+                {hasSurfaces && (
+                  <span className="ml-1 text-[10px] text-muted-foreground">
+                    ●
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="tokens">
+              <TokenTableView collection={active} />
+            </TabsContent>
+            <TabsContent value="generators">
+              <GeneratorEditorView collection={active} />
+            </TabsContent>
+            <TabsContent value="surfaces">
+              <SurfacesEditorView collection={active} />
+            </TabsContent>
+          </Tabs>
         ) : (
-          <div className="text-neutral-400">No collections.</div>
+          <div className="text-muted-foreground">No collections.</div>
         )}
       </main>
     </div>
