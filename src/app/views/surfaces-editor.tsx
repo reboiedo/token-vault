@@ -25,17 +25,21 @@
 
 import { Fragment, useMemo, useState } from "react";
 import {
+  Blend,
   ChevronDown,
   ChevronUp,
+  Contrast,
+  Droplet,
+  Layers,
   Link2,
   Link2Off,
   MoreHorizontal,
-  Pencil,
   Plus,
   RotateCcw,
   Sparkles,
+  Trash2,
+  Type as TypeIcon,
   Unlink,
-  X,
 } from "lucide-react";
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 import { Button } from "@/components/ui/button";
@@ -877,21 +881,21 @@ function AnchorPicker({
 }
 
 // ============================================================================
-// BRANCH EDITORS
+// BRANCH EDITORS — compact single-row layouts matching the cloud table
 // ============================================================================
 
-/** Color-coded APCA readout: red <30, amber <45, ok otherwise. */
-function LcReadout({ lc }: { lc: number | null }) {
-  if (lc === null) return null;
+/** Measured APCA readout: rounded number, colored like the cloud. */
+function LcNumber({ lc }: { lc: number | null }) {
+  if (lc === null) return <span className="w-6" />;
   return (
     <code
       className={cn(
-        "shrink-0 text-[10px] tabular-nums",
-        lc < 30 ? "text-red-600" : lc < 45 ? "text-amber-600" : "text-muted-foreground"
+        "w-6 shrink-0 text-right text-[11px] tabular-nums",
+        lc < 30 ? "text-red-500" : lc < 45 ? "text-amber-500" : "text-muted-foreground"
       )}
       title="Measured APCA Lc on the preview surface"
     >
-      Lc {lc.toFixed(1)}
+      {Math.round(lc)}
     </code>
   );
 }
@@ -907,9 +911,7 @@ function FgBranchEditor({
 }: {
   branch: SurfaceLevelBranch;
   levels: SurfaceLevel[];
-  /** Solved hex of this cell on the preview surface (this branch's mode). */
   cellHex: string | null;
-  /** Backdrop the APCA target is measured against on the preview surface. */
   measureHex: string | null;
   surfaceIsDark: boolean;
   resolveBaseHex: ResolveBaseHex;
@@ -917,44 +919,64 @@ function FgBranchEditor({
 }) {
   const target = normalizeFgTarget(branch);
   const measureRef = getMeasureAgainst(branch);
-  const measuredLc =
-    cellHex && measureHex ? apcaLc(cellHex, measureHex) : null;
+  const measuredLc = cellHex && measureHex ? apcaLc(cellHex, measureHex) : null;
 
   const setMeasure = (v: string | null) => {
     if (!v) return;
-    const ref: SurfaceMeasureRef | undefined =
-      v === "surface"
-        ? undefined
-        : v.startsWith("level:")
-          ? { kind: "level", levelId: v.slice(6) }
-          : undefined;
+    const ref: SurfaceMeasureRef | undefined = v.startsWith("level:")
+      ? { kind: "level", levelId: v.slice(6) }
+      : undefined;
     onChange({ ...branch, measureAgainst: ref } as SurfaceLevelBranch);
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex min-w-0 items-center gap-1.5">
+      <AnchorPicker
+        anchor={branch.anchor}
+        surfaceIsDark={surfaceIsDark}
+        resolveBaseHex={resolveBaseHex}
+        onChange={(anchor) => onChange({ ...branch, anchor } as SurfaceLevelBranch)}
+      />
       <Select
-        value={target.kind}
-        onValueChange={(k) =>
-          onChange({
-            ...branch,
-            target:
-              k === "apca" ? { kind: "apca", lc: 75 } : { kind: "mix", mix: 0.7 },
-          } as SurfaceLevelBranch)
+        value={
+          !measureRef || measureRef.kind !== "level"
+            ? "surface"
+            : `level:${measureRef.levelId}`
         }
+        onValueChange={setMeasure}
       >
-        <SelectTrigger className="h-7 w-[4.6rem] text-[10px]">
-          <SelectValue />
+        <SelectTrigger className="h-7 w-[6.2rem] text-[10px]">
+          <span className="mr-0.5 text-muted-foreground">vs</span>
+          <SelectValue>
+            {!measureRef || measureRef.kind !== "level"
+              ? "surface"
+              : levels.find((l) => l.id === measureRef.levelId)?.name ?? "level"}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="apca" className="text-xs">APCA</SelectItem>
-          <SelectItem value="mix" className="text-xs">mix</SelectItem>
+          <SelectItem value="surface" className="text-xs">surface</SelectItem>
+          {levels.map((l) => (
+            <SelectItem key={l.id} value={`level:${l.id}`} className="text-xs">
+              {l.name}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
-
       {target.kind === "apca" ? (
         <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
-          Lc
+          <button
+            type="button"
+            className="rounded px-0.5 hover:bg-accent"
+            title="APCA contrast target — click to switch to a recipe mix"
+            onClick={() =>
+              onChange({
+                ...branch,
+                target: { kind: "mix", mix: 0.7 },
+              } as SurfaceLevelBranch)
+            }
+          >
+            Lc
+          </button>
           <Input
             type="number"
             min={0}
@@ -966,71 +988,46 @@ function FgBranchEditor({
                 target: { kind: "apca", lc: Number(e.target.value) },
               } as SurfaceLevelBranch)
             }
-            className="h-7 w-16 text-xs"
+            className="h-7 w-14 text-xs"
           />
         </label>
       ) : (
-        <div className="w-28">
-          <SliderRow
-            label="mix"
-            value={target.mix}
+        <label className="flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground">
+          <button
+            type="button"
+            className="rounded px-0.5 hover:bg-accent"
+            title="Mix recipe — click to switch to an APCA contrast target"
+            onClick={() =>
+              onChange({
+                ...branch,
+                target: { kind: "apca", lc: 75 },
+              } as SurfaceLevelBranch)
+            }
+          >
+            mix
+          </button>
+          <input
+            type="range"
             min={0}
             max={1}
             step={0.01}
-            format={(v) => `${Math.round(v * 100)}%`}
-            onChange={(mix) =>
-              onChange({ ...branch, target: { kind: "mix", mix } } as SurfaceLevelBranch)
+            value={target.mix}
+            onChange={(e) =>
+              onChange({
+                ...branch,
+                target: { kind: "mix", mix: parseFloat(e.target.value) },
+              } as SurfaceLevelBranch)
             }
+            className="w-16"
           />
-        </div>
-      )}
-
-      <AnchorPicker
-        anchor={branch.anchor}
-        surfaceIsDark={surfaceIsDark}
-        resolveBaseHex={resolveBaseHex}
-        onChange={(anchor) => onChange({ ...branch, anchor } as SurfaceLevelBranch)}
-      />
-
-      {target.kind === "apca" && (
-        <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
-          vs
-          <Select
-            value={
-              !measureRef || measureRef.kind === "surface"
-                ? "surface"
-                : measureRef.kind === "level"
-                  ? `level:${measureRef.levelId}`
-                  : "surface"
-            }
-            onValueChange={setMeasure}
-          >
-            <SelectTrigger className="h-7 w-24 text-[10px]">
-              <SelectValue>
-                {!measureRef || measureRef.kind !== "level"
-                  ? "surface"
-                  : levels.find((l) => l.id === measureRef.levelId)?.name ??
-                    "level"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="surface" className="text-xs">surface</SelectItem>
-              {levels.map((l) => (
-                <SelectItem key={l.id} value={`level:${l.id}`} className="text-xs">
-                  {l.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </label>
       )}
-
       <span
-        className="h-6 w-6 shrink-0 rounded border"
+        className="h-7 w-7 shrink-0 rounded border"
         style={{ background: cellHex ?? "transparent" }}
         title={cellHex ?? "Add a surface to preview"}
       />
-      <LcReadout lc={measuredLc} />
+      <LcNumber lc={measuredLc} />
     </div>
   );
 }
@@ -1149,8 +1146,8 @@ function ShiftBranchEditor({
   onChange: (b: SurfaceShiftBranch) => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="min-w-0 flex-1 space-y-1">
+    <div className="flex min-w-0 items-center gap-2">
+      <div className="min-w-0 flex-1 space-y-0.5">
         <SliderRow
           label="Step"
           value={branch.stepStrength ?? 0}
@@ -1203,30 +1200,31 @@ function MixBranchEditor({
 }) {
   const measuredLc = cellHex && measureHex ? apcaLc(cellHex, measureHex) : null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <div className="w-32">
-        <SliderRow
-          label="mix"
-          value={branch.mix}
-          min={0}
-          max={1}
-          step={0.01}
-          format={(v) => `${Math.round(v * 100)}%`}
-          onChange={(mix) => onChange({ ...branch, mix })}
-        />
-      </div>
+    <div className="flex min-w-0 items-center gap-1.5">
       <AnchorPicker
         anchor={branch.anchor}
         surfaceIsDark={surfaceIsDark}
         resolveBaseHex={resolveBaseHex}
         onChange={(anchor) => onChange({ ...branch, anchor })}
       />
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={branch.mix}
+        onChange={(e) => onChange({ ...branch, mix: parseFloat(e.target.value) })}
+        className="w-20 min-w-0"
+      />
+      <code className="w-9 shrink-0 text-right text-[10px] tabular-nums">
+        {Math.round(branch.mix * 100)}%
+      </code>
       <span
-        className="h-6 w-6 shrink-0 rounded border"
+        className="h-7 w-7 shrink-0 rounded border"
         style={{ background: cellHex ?? "transparent" }}
         title={cellHex ?? undefined}
       />
-      <LcReadout lc={measuredLc} />
+      <LcNumber lc={measuredLc} />
     </div>
   );
 }
@@ -1236,7 +1234,6 @@ function OpacityBranchEditor({
   source,
   bake,
   cellHex,
-  surfaceHex,
   onSourceChange,
   onBakeChange,
   onChange,
@@ -1245,7 +1242,6 @@ function OpacityBranchEditor({
   source: SurfaceOpacitySource;
   bake: "composite" | "alpha";
   cellHex: string | null;
-  surfaceHex: string | null;
   onSourceChange: (next: SurfaceOpacitySource) => void;
   onBakeChange: (next: "composite" | "alpha") => void;
   onChange: (b: SurfaceOpacityBranch) => void;
@@ -1256,106 +1252,108 @@ function OpacityBranchEditor({
     typeof source === "string" ? source : isTw ? "__tailwind__" : "__alias__";
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex items-center gap-2 text-[10px]">
-          <span className="shrink-0 text-muted-foreground">Fade</span>
-          <Select
-            value={selectValue}
-            onValueChange={(v) =>
-              onSourceChange(
-                v === "fg" || v === "surface"
-                  ? v
-                  : { kind: "tailwind", color: "slate-500" }
-              )
-            }
+    <div className="min-w-0 flex-1 space-y-1">
+      <div className="flex items-center gap-2 text-[10px]">
+        <span className="shrink-0 text-muted-foreground">Fade</span>
+        <Select
+          value={selectValue}
+          onValueChange={(v) =>
+            v &&
+            onSourceChange(
+              v === "fg" || v === "surface" ? v : { kind: "tailwind", color: "slate-500" }
+            )
+          }
+        >
+          <SelectTrigger className="h-7 min-w-0 flex-1 text-xs">
+            <SelectValue>
+              {typeof source === "string"
+                ? source
+                : isTw && typeof source === "object" && source.kind === "tailwind"
+                  ? `tw:${source.color}`
+                  : "token"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="fg" className="text-xs">fg</SelectItem>
+            <SelectItem value="surface" className="text-xs">surface</SelectItem>
+            {(system?.useTailwindColors || isTw) && (
+              <SelectItem value="__tailwind__" className="text-xs">tailwind</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+        {typeof source === "object" && source.kind === "tailwind" && (
+          <TailwindColorPopover
+            onSelect={(color) => onSourceChange({ kind: "tailwind", color })}
           >
-            <SelectTrigger className="h-7 min-w-0 flex-1 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="fg" className="text-xs">fg</SelectItem>
-              <SelectItem value="surface" className="text-xs">surface</SelectItem>
-              {(system?.useTailwindColors || isTw) && (
-                <SelectItem value="__tailwind__" className="text-xs">tailwind</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-          {typeof source === "object" && source.kind === "tailwind" && (
-            <TailwindColorPopover
-              onSelect={(color) => onSourceChange({ kind: "tailwind", color })}
+            <button
+              type="button"
+              className="inline-flex h-7 shrink-0 items-center gap-1 truncate rounded bg-cyan-100 px-1.5 font-mono text-[10px] text-cyan-700 transition hover:bg-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300"
+              title={source.color}
             >
-              <button
-                type="button"
-                className="inline-flex h-7 shrink-0 items-center gap-1 truncate rounded bg-cyan-100 px-1.5 font-mono text-[10px] text-cyan-700 transition hover:bg-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300"
-                title={source.color}
-              >
-                <span
-                  className="h-3 w-3 shrink-0 rounded border"
-                  style={{ background: getTailwindHex(source.color) ?? "transparent" }}
-                />
-                <span className="max-w-20 truncate">{source.color}</span>
-              </button>
-            </TailwindColorPopover>
-          )}
-          <div className="flex shrink-0 overflow-hidden rounded-md border">
-            {(["alpha", "composite"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => onBakeChange(mode)}
-                title={
-                  mode === "alpha"
-                    ? "Ship a true translucent color (oklch … / a)"
-                    : "Flatten over the surface into an opaque hex"
-                }
-                className={cn(
-                  "px-1.5 py-0.5 text-[10px] transition",
-                  bake === mode
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:bg-accent"
-                )}
-              >
-                {mode === "alpha" ? "α" : "flat"}
-              </button>
-            ))}
-          </div>
+              <span
+                className="h-3 w-3 shrink-0 rounded border"
+                style={{ background: getTailwindHex(source.color) ?? "transparent" }}
+              />
+              <span className="max-w-20 truncate">{source.color}</span>
+            </button>
+          </TailwindColorPopover>
+        )}
+        <div className="flex shrink-0 overflow-hidden rounded-md border">
+          {(["alpha", "composite"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => onBakeChange(mode)}
+              title={
+                mode === "alpha"
+                  ? "Ship a true translucent color (oklch … / a)"
+                  : "Flatten over the surface into an opaque hex"
+              }
+              className={cn(
+                "px-1.5 py-0.5 text-[10px] transition",
+                bake === mode
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:bg-accent"
+              )}
+            >
+              {mode === "alpha" ? "α" : "flat"}
+            </button>
+          ))}
         </div>
-        <SliderRow
-          label="α"
-          value={branch.alpha}
-          min={0}
-          max={1}
-          step={0.01}
-          format={(v) => `${Math.round(v * 100)}%`}
-          onChange={(alpha) => onChange({ alpha })}
-        />
-      </div>
-      <span
-        className="h-8 w-8 shrink-0 rounded border"
-        style={{
-          backgroundImage:
-            bake === "alpha"
-              ? "linear-gradient(45deg,#ccc 25%,transparent 25%,transparent 75%,#ccc 75%),linear-gradient(45deg,#ccc 25%,transparent 25%,transparent 75%,#ccc 75%)"
-              : undefined,
-          backgroundSize: "8px 8px",
-          backgroundPosition: "0 0, 4px 4px",
-        }}
-        title={cellHex ? `On surface: ${cellHex}` : undefined}
-      >
         <span
-          className="block h-full w-full rounded-[3px]"
+          className="h-7 w-7 shrink-0 rounded border"
           style={{
-            background:
-              bake === "alpha" && cellHex
-                ? cellHex.length === 9
-                  ? cellHex
-                  : withAlpha(cellHex, branch.alpha)
-                : (cellHex ?? "transparent"),
+            backgroundImage:
+              bake === "alpha"
+                ? "linear-gradient(45deg,#ccc 25%,transparent 25%,transparent 75%,#ccc 75%),linear-gradient(45deg,#ccc 25%,transparent 25%,transparent 75%,#ccc 75%)"
+                : undefined,
+            backgroundSize: "8px 8px",
+            backgroundPosition: "0 0, 4px 4px",
           }}
-        />
-      </span>
-      <span className="sr-only">{surfaceHex}</span>
+          title={cellHex ? `On surface: ${cellHex}` : undefined}
+        >
+          <span
+            className="block h-full w-full rounded-[3px]"
+            style={{
+              background:
+                bake === "alpha" && cellHex
+                  ? cellHex.length === 9
+                    ? cellHex
+                    : withAlpha(cellHex, branch.alpha)
+                  : (cellHex ?? "transparent"),
+            }}
+          />
+        </span>
+      </div>
+      <SliderRow
+        label="α"
+        value={branch.alpha}
+        min={0}
+        max={1}
+        step={0.01}
+        format={(v) => `${Math.round(v * 100)}%`}
+        onChange={(alpha) => onChange({ alpha })}
+      />
     </div>
   );
 }
@@ -1372,7 +1370,6 @@ function ScaleStepBranchEditor({
   const system = useSystem();
   const resolver = useResolver();
 
-  // Distinct token-scale prefixes (everything before the last dot).
   const scales = useMemo(() => {
     const prefixes = new Set<string>();
     for (const o of resolver.aliasOptions([])) {
@@ -1398,19 +1395,21 @@ function ScaleStepBranchEditor({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
         step
         <Input
           value={branch.step}
           onChange={(e) => onChange({ ...branch, step: e.target.value.trim() })}
-          className="h-7 w-16 font-mono text-xs"
+          className="h-7 w-14 font-mono text-xs"
           placeholder="600"
         />
       </label>
       <Select value={selected} onValueChange={setScale}>
         <SelectTrigger className="h-7 min-w-0 flex-1 text-xs">
-          <SelectValue />
+          <SelectValue>
+            {selected === "__parent__" ? "Parent scale" : selected}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="__parent__" className="text-xs">
@@ -1443,10 +1442,18 @@ function ScaleStepBranchEditor({
 }
 
 // ============================================================================
-// LEVEL ROW — kind picker + Light/Dark branch columns with link/unlink
+// RULE ROW — one table row: ▲▼ | type icon | name | light | dark | link | ⋮
 // ============================================================================
 
-function LevelRow({
+const RULE_KIND_ICONS: Record<SurfaceLevelRule["kind"], typeof TypeIcon> = {
+  fg: TypeIcon,
+  "surface-shift": Contrast,
+  "surface-mix": Blend,
+  opacity: Droplet,
+  "scale-step": Layers,
+};
+
+function RuleRow({
   level,
   levels,
   previewSurface,
@@ -1491,32 +1498,21 @@ function LevelRow({
         rule: { ...rule, onLight: branch, onDark: branch } as SurfaceLevelRule,
       });
     } else {
-      onChange({
-        ...level,
-        rule: { ...rule, [side]: branch } as SurfaceLevelRule,
-      });
+      onChange({ ...level, rule: { ...rule, [side]: branch } as SurfaceLevelRule });
     }
   };
 
-  // Cell previews computed against the preview surface, per mode column.
   const cellFor = (mode: string | undefined): string | null => {
     if (!previewSurface || !mode) return null;
     const expanded = expandSurfaceModes(previewSurface, modes);
     const effRule = effectiveLevelRule(expanded, level);
     if (!effRule) return null;
-    return computeCellHex(
-      expanded,
-      { ...level, rule: effRule },
-      mode,
-      threshold,
-      resolveBaseHex,
-      {
-        allLevels: levels,
-        primaryMode: primary,
-        pageBgHex: pageBgByMode[mode],
-        resolveScaleStep,
-      }
-    );
+    return computeCellHex(expanded, { ...level, rule: effRule }, mode, threshold, resolveBaseHex, {
+      allLevels: levels,
+      primaryMode: primary,
+      pageBgHex: pageBgByMode[mode],
+      resolveScaleStep,
+    });
   };
 
   const measureFor = (
@@ -1525,11 +1521,7 @@ function LevelRow({
   ): string | null => {
     if (!previewSurface || !mode || rule.kind !== "fg") return null;
     const expanded = expandSurfaceModes(previewSurface, modes);
-    const baseHex = resolveSurfaceBaseHex(
-      expanded.baseByMode[mode],
-      mode,
-      resolveBaseHex
-    );
+    const baseHex = resolveSurfaceBaseHex(expanded.baseByMode[mode], mode, resolveBaseHex);
     if (!baseHex) return null;
     return resolveMeasureBackdropHex(
       getMeasureAgainst(branch),
@@ -1605,10 +1597,7 @@ function LevelRow({
           source={rule.source}
           bake={rule.bake ?? "composite"}
           cellHex={cellHex}
-          surfaceHex={surfaceHexFor(mode)}
-          onSourceChange={(source) =>
-            onChange({ ...level, rule: { ...rule, source } })
-          }
+          onSourceChange={(source) => onChange({ ...level, rule: { ...rule, source } })}
           onBakeChange={(bake) => onChange({ ...level, rule: { ...rule, bake } })}
           onChange={(b) => patchBranch(side, b)}
         />
@@ -1623,128 +1612,136 @@ function LevelRow({
     );
   };
 
+  const Icon = RULE_KIND_ICONS[rule.kind];
+
   return (
-    <div className="space-y-2 rounded-md border px-2.5 py-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={level.name}
-          onChange={(e) => onChange({ ...level, name: e.target.value })}
-          className="h-7 w-28 font-mono text-xs"
-        />
-        <Select
-          value={rule.kind}
-          onValueChange={(kind) => {
-            setUnlinked(false);
-            onChange({
-              ...level,
-              rule: defaultRuleForKind(kind as SurfaceLevelRule["kind"]),
-            });
-          }}
+    <div className="grid grid-cols-[1.5rem_2.25rem_9rem_1fr_1fr_3.5rem] items-center gap-2 border-t px-2 py-2 first:border-t-0">
+      {/* reorder */}
+      <div className="flex flex-col items-center">
+        <button
+          type="button"
+          disabled={!canMoveUp}
+          onClick={() => onMove(-1)}
+          className="text-muted-foreground/60 hover:text-foreground disabled:opacity-20"
         >
-          <SelectTrigger className="h-7 w-40 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(RULE_KIND_LABELS) as SurfaceLevelRule["kind"][]).map((k) => (
-              <SelectItem key={k} value={k} className="text-xs">
-                {RULE_KIND_LABELS[k]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={level.display ?? "text"}
-          onValueChange={(display) =>
-            onChange({ ...level, display: display as SurfaceLevel["display"] })
-          }
+          <ChevronUp className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          disabled={!canMoveDown}
+          onClick={() => onMove(1)}
+          className="text-muted-foreground/60 hover:text-foreground disabled:opacity-20"
         >
-          <SelectTrigger className="h-7 w-24 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="text" className="text-xs">text</SelectItem>
-            <SelectItem value="separator" className="text-xs">separator</SelectItem>
-            <SelectItem value="bg" className="text-xs">bg</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="ml-auto flex items-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            disabled={!canMoveUp}
-            onClick={() => onMove(-1)}
-          >
-            <ChevronUp className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            disabled={!canMoveDown}
-            onClick={() => onMove(1)}
-          >
-            <ChevronDown className="h-3 w-3" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove}>
-            <X className="h-3 w-3" />
-          </Button>
-        </div>
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-        <div className="space-y-1 rounded border border-dashed p-2">
-          <div className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
-            {lightMode ?? "light"}
-          </div>
-          {renderBranch("onLight")}
-        </div>
-        <div
-          className={cn(
-            "space-y-1 rounded border border-dashed p-2",
-            linked && "opacity-55"
-          )}
+      {/* type icon = rule kind picker */}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="flex h-8 w-8 items-center justify-center rounded-md border transition hover:bg-accent"
+          title={`${RULE_KIND_LABELS[rule.kind]} — click to change the rule type`}
         >
-          <div className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
-            {darkMode ?? "dark"}
-            <button
-              type="button"
-              className="inline-flex h-4 w-4 items-center justify-center rounded hover:bg-accent"
-              title={
-                linked
-                  ? "Linked: mirrors the primary column. Click to edit independently."
-                  : "Unlinked. Click to re-link (copies the primary column)."
-              }
-              onClick={() => {
-                if (linked) {
-                  setUnlinked(true);
-                } else {
+          <Icon className="h-3.5 w-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {(Object.keys(RULE_KIND_LABELS) as SurfaceLevelRule["kind"][]).map((k) => {
+            const KIcon = RULE_KIND_ICONS[k];
+            return (
+              <DropdownMenuItem
+                key={k}
+                className="text-xs"
+                onClick={() => {
                   setUnlinked(false);
-                  onChange({
-                    ...level,
-                    rule: { ...rule, onDark: rule.onLight } as SurfaceLevelRule,
-                  });
+                  onChange({ ...level, rule: defaultRuleForKind(k) });
+                }}
+              >
+                <KIcon className="h-3 w-3" /> {RULE_KIND_LABELS[k]}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Input
+        value={level.name}
+        onChange={(e) => onChange({ ...level, name: e.target.value })}
+        className="h-8 font-mono text-xs"
+      />
+
+      {/* light branch */}
+      <div className="min-w-0">{renderBranch("onLight")}</div>
+
+      {/* dark branch — dimmed while linked; touching it unlinks */}
+      <div
+        className={cn("min-w-0", linked && "pointer-events-auto opacity-45")}
+        onPointerDownCapture={() => {
+          if (linked) setUnlinked(true);
+        }}
+      >
+        {darkMode ? renderBranch("onDark") : null}
+      </div>
+
+      {/* link + menu */}
+      <div className="flex items-center justify-end gap-0.5">
+        <button
+          type="button"
+          className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent"
+          title={
+            linked
+              ? "Linked: dark mirrors light. Click to edit independently."
+              : "Unlinked. Click to re-link (copies the light column)."
+          }
+          onClick={() => {
+            if (linked) setUnlinked(true);
+            else {
+              setUnlinked(false);
+              onChange({
+                ...level,
+                rule: { ...rule, onDark: rule.onLight } as SurfaceLevelRule,
+              });
+            }
+          }}
+        >
+          {linked ? <Link2 className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent">
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <div className="flex items-center justify-between gap-2 px-2 py-1.5 text-xs">
+              <span>Preview as</span>
+              <Select
+                value={level.display ?? "text"}
+                onValueChange={(display) =>
+                  display &&
+                  onChange({ ...level, display: display as SurfaceLevel["display"] })
                 }
-              }}
-            >
-              {linked ? <Link2 className="h-3 w-3" /> : <Link2Off className="h-3 w-3" />}
-            </button>
-          </div>
-          <div
-            onPointerDownCapture={() => {
-              if (linked) setUnlinked(true);
-            }}
-          >
-            {renderBranch("onDark")}
-          </div>
-        </div>
+              >
+                <SelectTrigger className="h-6 w-24 text-[10px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text" className="text-xs">text</SelectItem>
+                  <SelectItem value="separator" className="text-xs">separator</SelectItem>
+                  <SelectItem value="bg" className="text-xs">bg</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DropdownMenuItem variant="destructive" className="text-xs" onClick={onRemove}>
+              Delete rule
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
 }
 
 // ============================================================================
-// MATRIX — per-(surface, level) on/off (levelStates), wildcard-aware
+// MATRIX — swatch pills ("● on / off") per (surface, level), computed on
+// the primary mode, exactly like the cloud table.
 // ============================================================================
 
 function cellEnabled(surface: SurfaceRow, levelId: string): boolean {
@@ -1756,26 +1753,55 @@ function cellEnabled(surface: SurfaceRow, levelId: string): boolean {
 
 function MatrixSection({
   config,
+  modes,
+  threshold,
+  resolveBaseHex,
+  resolveScaleStep,
+  pageBgByMode,
   onPatchSurface,
 }: {
   config: SurfacesConfig;
+  modes: string[];
+  threshold: number;
+  resolveBaseHex: ResolveBaseHex;
+  resolveScaleStep: ReturnType<typeof makeResolveScaleStep>;
+  pageBgByMode: Record<string, string | undefined>;
   onPatchSurface: (id: string, patch: Partial<SurfaceRow>) => void;
 }) {
+  const primary = modes[0];
   if (config.surfaces.length === 0 || config.levels.length === 0) return null;
+
+  const cellHexFor = (surface: SurfaceRow, level: SurfaceLevel): string | null => {
+    const expanded = expandSurfaceModes(surface, modes);
+    return computeCellHex(expanded, level, primary, threshold, resolveBaseHex, {
+      allLevels: config.levels,
+      primaryMode: modeKeyPrimary(modes),
+      pageBgHex: pageBgByMode[primary],
+      resolveScaleStep,
+    });
+  };
+
   return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Surface × level
-      </h3>
-      <div className="overflow-x-auto">
-        <table className="border-collapse text-xs">
+    <section className="space-y-2">
+      <div className="flex items-center">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Surface × level matrix
+        </h3>
+        <span className="ml-auto text-[11px] text-muted-foreground">
+          Which levels each surface emits — <span className="text-foreground">on</span> · off
+        </span>
+      </div>
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full border-collapse text-xs">
           <thead>
-            <tr>
-              <th />
+            <tr className="bg-muted/40 text-left">
+              <th className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
+                Surface
+              </th>
               {config.levels.map((l) => (
                 <th
                   key={l.id}
-                  className="px-2 pb-1 text-left font-mono text-[10px] font-normal text-muted-foreground"
+                  className="px-3 py-1.5 text-center font-mono text-[11px] font-normal text-muted-foreground"
                 >
                   {l.name}
                 </th>
@@ -1784,27 +1810,49 @@ function MatrixSection({
           </thead>
           <tbody>
             {config.surfaces.map((s) => (
-              <tr key={s.id}>
-                <td className="pr-3 font-mono text-[11px]">{s.name}</td>
-                {config.levels.map((l) => (
-                  <td key={l.id} className="px-2 py-0.5">
-                    <Checkbox
-                      checked={cellEnabled(s, l.id)}
-                      onCheckedChange={(checked) => {
-                        const states = { ...(s.levelStates ?? {}) };
-                        if (checked) states[l.id] = { state: "default" };
-                        else states[l.id] = { state: "disabled" };
-                        onPatchSurface(s.id, { levelStates: states });
-                      }}
-                    />
-                  </td>
-                ))}
+              <tr key={s.id} className="border-t">
+                <td className="px-3 py-1.5 font-mono text-[11px]">{s.name}</td>
+                {config.levels.map((l) => {
+                  const enabled = cellEnabled(s, l.id);
+                  const hex = enabled ? cellHexFor(s, l) : null;
+                  return (
+                    <td key={l.id} className="px-3 py-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const states = { ...(s.levelStates ?? {}) };
+                          states[l.id] = enabled
+                            ? { state: "disabled" }
+                            : { state: "default" };
+                          onPatchSurface(s.id, { levelStates: states });
+                        }}
+                        className={cn(
+                          "flex w-full items-center justify-center gap-1.5 rounded-md border px-2 py-1 transition hover:bg-accent",
+                          !enabled && "opacity-40"
+                        )}
+                        title={
+                          enabled
+                            ? `${s.name} emits ${l.name} — click to disable`
+                            : `${s.name} skips ${l.name} — click to enable`
+                        }
+                      >
+                        <span
+                          className="h-3.5 w-3.5 rounded-full border"
+                          style={{ background: hex ?? "transparent" }}
+                        />
+                        <span className="text-[10px] text-muted-foreground">
+                          {enabled ? "on" : "off"}
+                        </span>
+                      </button>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -1812,23 +1860,14 @@ function MatrixSection({
 // PREVIEW — live client-side materialization of the DRAFT config
 // ============================================================================
 
-function SurfacesPreview({
-  config,
-  modes,
-}: {
-  config: SurfacesConfig;
-  modes: string[];
-}) {
+function SurfacesPreview({ config, modes }: { config: SurfacesConfig; modes: string[] }) {
   const resolver = useResolver();
   const tokens = useMemo(() => {
     try {
       const aliasOptions = resolver.aliasOptions(modes);
-      return generateSurfaceTokens(
-        config,
-        modes,
-        (ref, mode) => resolver.resolveRaw(ref, mode),
-        { resolveScaleStep: makeResolveScaleStep(aliasOptions) }
-      );
+      return generateSurfaceTokens(config, modes, (ref, mode) => resolver.resolveRaw(ref, mode), {
+        resolveScaleStep: makeResolveScaleStep(aliasOptions),
+      });
     } catch {
       return [];
     }
@@ -1849,10 +1888,7 @@ function SurfacesPreview({
                 <span className="ml-2 text-[10px] text-muted-foreground">(bare)</span>
               )}
             </div>
-            <div
-              className="grid"
-              style={{ gridTemplateColumns: `repeat(${modes.length}, 1fr)` }}
-            >
+            <div className="grid" style={{ gridTemplateColumns: `repeat(${modes.length}, 1fr)` }}>
               {modes.map((mode) => {
                 const baseHex =
                   resolveSurfaceBaseHex(
@@ -1931,15 +1967,13 @@ export function SurfacesEditorView({ collection }: { collection: CollectionDoc }
   const [previewSurfaceId, setPreviewSurfaceId] = useState<string | null>(null);
 
   const dirty =
-    draft !== null &&
-    JSON.stringify(draft) !== JSON.stringify(persistedAtEdit ?? null);
+    draft !== null && JSON.stringify(draft) !== JSON.stringify(persistedAtEdit ?? null);
   const config = dirty ? draft : (persisted ?? draft);
 
   const modes = collection.modes;
   const primary = modes[0];
   const threshold = config?.contrastThreshold ?? DEFAULT_THRESHOLD;
-  const resolveBaseHex: ResolveBaseHex = (ref, mode) =>
-    resolver.resolveRaw(ref, mode);
+  const resolveBaseHex: ResolveBaseHex = (ref, mode) => resolver.resolveRaw(ref, mode);
   const resolveScaleStep = useMemo(
     () => makeResolveScaleStep(resolver.aliasOptions(modes)),
     [resolver, modes]
@@ -1949,19 +1983,16 @@ export function SurfacesEditorView({ collection }: { collection: CollectionDoc }
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          The surfaces helper derives foregrounds, borders and state variants
-          from each surface color — APCA-targeted, per mode.
+          The surfaces helper derives foregrounds, borders and state variants from
+          each surface color — APCA-targeted, per mode.
         </p>
         <Button
           size="sm"
           onClick={() => {
-            const seeded = seedConfig(modes);
-            setDraft(seeded);
+            // Seed the DRAFT only — nothing touches the files until the
+            // user hits Save (an accidental tab visit must not write).
+            setDraft(seedConfig(modes));
             setPersistedAtEdit(persisted);
-            void actions.updateSurfacesConfig({
-              collection: collection.name,
-              config: seeded,
-            });
           }}
         >
           Enable surfaces helper
@@ -1981,327 +2012,381 @@ export function SurfacesEditorView({ collection }: { collection: CollectionDoc }
       surfaces: config.surfaces.map((s) => (s.id === id ? { ...s, ...patch } : s)),
     });
 
-  const previewSurface =
-    config.surfaces.find((s) => s.id === previewSurfaceId) ??
-    config.surfaces[0] ??
-    null;
+  const moveSurface = (index: number, dir: -1 | 1) => {
+    const j = index + dir;
+    if (j < 0 || j >= config.surfaces.length) return;
+    const next = [...config.surfaces];
+    [next[index], next[j]] = [next[j], next[index]];
+    update({ ...config, surfaces: next });
+  };
 
-  // Page background per mode (the `bg`-ish surface) for alpha flattening.
+  const previewSurface =
+    config.surfaces.find((s) => s.id === previewSurfaceId) ?? config.surfaces[0] ?? null;
+
   const pageBgByMode: Record<string, string | undefined> = {};
   const pageBgSurface =
-    config.surfaces.find((s) => /^(bg|background|base|page|surface|default)$/i.test(s.name)) ??
-    config.surfaces[0];
+    config.surfaces.find((s) =>
+      /^(bg|background|base|page|surface|default)$/i.test(s.name)
+    ) ?? config.surfaces[0];
   if (pageBgSurface) {
     const expanded = expandSurfaceModes(pageBgSurface, modes);
     for (const mode of modes) {
       pageBgByMode[mode] =
-        resolveSurfaceBaseHex(expanded.baseByMode[mode], mode, resolveBaseHex) ??
-        undefined;
+        resolveSurfaceBaseHex(expanded.baseByMode[mode], mode, resolveBaseHex) ?? undefined;
     }
   }
 
   const bareCount = config.surfaces.filter((s) => s.bareLevels).length;
+  const surfaceGrid = `1.5rem 9rem repeat(${modes.length * 2}, minmax(0, 1fr)) 4rem`;
 
   return (
-    <div className="space-y-6">
-      {/* Save bar */}
-      <div className="flex items-center gap-2">
-        <h2 className="text-sm font-medium">Surfaces</h2>
-        {bareCount > 1 && (
-          <span className="text-[10px] text-amber-600">
-            {bareCount} bare surfaces — later ones overwrite level tokens
-          </span>
-        )}
-        {dirty && (
-          <>
-            <Button
-              size="sm"
-              className="h-7"
-              onClick={async () => {
-                await actions.updateSurfacesConfig({
-                  collection: collection.name,
-                  config,
-                });
-                setDraft(config);
-                setPersistedAtEdit(config);
-              }}
-            >
-              Save
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7"
-              onClick={() => {
-                setDraft(persisted ?? null);
-                setPersistedAtEdit(persisted);
-              }}
-            >
-              Discard
-            </Button>
-          </>
-        )}
-      </div>
-
-      {/* ===== SURFACES TABLE ===== */}
-      <div className="space-y-1.5">
-        <div
-          className="grid items-center gap-2 px-2"
-          style={{
-            gridTemplateColumns: `10rem repeat(${modes.length}, minmax(0, 1fr)) 3.5rem`,
-          }}
-        >
-          <span />
-          {modes.map((mode, i) => (
-            <ModeHeader
-              key={mode}
-              name={mode}
-              index={i}
-              total={modes.length}
-              collection={collection}
-            />
-          ))}
-          <span />
-        </div>
-        {config.surfaces.map((surface) => {
-          const expanded = expandSurfaceModes(surface, modes);
-          return (
-            <div
-              key={surface.id}
-              className="grid items-center gap-2 rounded-md border px-2 py-1.5"
-              style={{
-                gridTemplateColumns: `10rem repeat(${modes.length}, minmax(0, 1fr)) 3.5rem`,
-              }}
-            >
-              <Input
-                value={surface.name}
-                onChange={(e) => patchSurface(surface.id, { name: e.target.value })}
-                className="h-7 font-mono text-xs"
-              />
-              {modes.map((mode) => {
-                const explicitBase = surface.baseByMode[mode] !== undefined;
-                const explicitFg = surface.fgByMode?.[mode] !== undefined;
-                const inheritedBase = mode !== primary && !explicitBase;
-                const inheritedFg = mode !== primary && !explicitFg;
-                const baseHex = resolveSurfaceBaseHex(
-                  expanded.baseByMode[mode],
-                  mode,
-                  resolveBaseHex
-                );
-                const autoFg: "light" | "dark" | null = baseHex
-                  ? hexToOklch(baseHex).l < threshold
-                    ? "light"
-                    : "dark"
-                  : null;
-                return (
-                  <div key={mode} className="flex min-w-0 flex-col gap-1">
-                    <BaseCell
-                      value={expanded.baseByMode[mode]}
-                      mode={mode}
-                      inherited={inheritedBase}
-                      resolveBaseHex={resolveBaseHex}
-                      onChange={(base) =>
-                        patchSurface(surface.id, {
-                          baseByMode: { ...surface.baseByMode, [mode]: base },
-                        })
-                      }
-                      onReset={
-                        mode !== primary && explicitBase
-                          ? () => {
-                              const { [mode]: _, ...rest } = surface.baseByMode;
-                              patchSurface(surface.id, { baseByMode: rest });
-                            }
-                          : undefined
-                      }
-                    />
-                    <FgPicker
-                      fg={expanded.fgByMode?.[mode] ?? { kind: "auto" }}
-                      autoFg={autoFg}
-                      mode={mode}
-                      inherited={inheritedFg}
-                      resolveBaseHex={resolveBaseHex}
-                      onChange={(fg) =>
-                        patchSurface(surface.id, {
-                          fgByMode: { ...(surface.fgByMode ?? {}), [mode]: fg },
-                        })
-                      }
-                      onReset={
-                        mode !== primary && explicitFg
-                          ? () => {
-                              const { [mode]: _, ...rest } = surface.fgByMode ?? {};
-                              patchSurface(surface.id, { fgByMode: rest });
-                            }
-                          : undefined
-                      }
-                    />
-                  </div>
-                );
-              })}
-              <div className="flex items-center justify-end">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="rounded p-1 hover:bg-accent">
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <div className="flex items-center justify-between px-2 py-1.5 text-xs">
-                      <span title="Emit the surface base itself as a token">
-                        Materialize base
-                      </span>
-                      <Switch
-                        checked={surface.materializeBase ?? false}
-                        onCheckedChange={(materializeBase) =>
-                          patchSurface(surface.id, { materializeBase })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between px-2 py-1.5 text-xs">
-                      <span title="Drop the surface prefix on level tokens (fg instead of bg.fg)">
-                        Bare levels
-                      </span>
-                      <Switch
-                        checked={surface.bareLevels ?? false}
-                        onCheckedChange={(bareLevels) =>
-                          patchSurface(surface.id, { bareLevels })
-                        }
-                      />
-                    </div>
-                    <DropdownMenuItem
-                      variant="destructive"
-                      className="text-xs"
-                      onClick={() =>
-                        update({
-                          ...config,
-                          surfaces: config.surfaces.filter((s) => s.id !== surface.id),
-                        })
-                      }
-                    >
-                      Delete surface
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          );
-        })}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-xs text-muted-foreground"
-          onClick={() =>
-            update({
-              ...config,
-              surfaces: [
-                ...config.surfaces,
-                {
-                  id: uid(),
-                  name: `surface-${config.surfaces.length + 1}`,
-                  materializeBase: true,
-                  baseByMode: Object.fromEntries(
-                    modes.map((m) => [
-                      m,
-                      { kind: "raw", value: "#dddddd" } as SurfaceBaseValue,
-                    ])
-                  ),
-                },
-              ],
-            })
-          }
-        >
-          <Plus className="h-3 w-3" /> Add surface
-        </Button>
-      </div>
-
-      {/* ===== LEVELS ===== */}
-      <div className="space-y-2">
+    <div className="space-y-8">
+      {/* ===== SURFACES ===== */}
+      <section className="space-y-2">
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Levels
+            Surfaces
           </h3>
-          <label className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground">
-            <Pencil className="h-3 w-3" /> preview on
-            <Select
-              value={previewSurface?.id ?? ""}
-              onValueChange={setPreviewSurfaceId}
-            >
-              <SelectTrigger className="h-6 w-36 text-[10px]">
-                <SelectValue>{previewSurface?.name ?? "…"}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {config.surfaces.map((s) => (
-                  <SelectItem key={s.id} value={s.id} className="font-mono text-xs">
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        </div>
-        {config.levels.map((level, i) => (
-          <LevelRow
-            key={level.id}
-            level={level}
-            levels={config.levels}
-            previewSurface={previewSurface}
-            modes={modes}
-            threshold={threshold}
-            resolveBaseHex={resolveBaseHex}
-            resolveScaleStep={resolveScaleStep}
-            pageBgByMode={pageBgByMode}
-            canMoveUp={i > 0}
-            canMoveDown={i < config.levels.length - 1}
-            onChange={(next) =>
-              update({
-                ...config,
-                levels: config.levels.map((l) => (l.id === next.id ? next : l)),
-              })
-            }
-            onMove={(dir) => {
-              const j = i + dir;
-              const next = [...config.levels];
-              [next[i], next[j]] = [next[j], next[i]];
-              update({ ...config, levels: next });
-            }}
-            onRemove={() =>
-              update({
-                ...config,
-                levels: config.levels.filter((l) => l.id !== level.id),
-              })
-            }
-          />
-        ))}
-        <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-1 rounded-md border border-dashed px-2.5 py-1 text-xs text-muted-foreground transition hover:bg-accent">
-            <Plus className="h-3 w-3" /> Add level
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {(Object.keys(RULE_KIND_LABELS) as SurfaceLevelRule["kind"][]).map((kind) => (
-              <DropdownMenuItem
-                key={kind}
-                className="text-xs"
-                onClick={() =>
-                  update({
-                    ...config,
-                    levels: [...config.levels, defaultLevelForKind(kind)],
-                  })
-                }
+          {bareCount > 1 && (
+            <span className="text-[10px] text-amber-600">
+              {bareCount} bare surfaces — later ones overwrite level tokens
+            </span>
+          )}
+          {dirty && (
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                className="h-7"
+                onClick={async () => {
+                  await actions.updateSurfacesConfig({
+                    collection: collection.name,
+                    config,
+                  });
+                  setDraft(config);
+                  setPersistedAtEdit(config);
+                }}
               >
-                {RULE_KIND_LABELS[kind]}
-              </DropdownMenuItem>
+                Save
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7"
+                onClick={() => {
+                  setDraft(persisted ?? null);
+                  setPersistedAtEdit(persisted);
+                }}
+              >
+                Discard
+              </Button>
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto h-8"
+            onClick={() =>
+              update({
+                ...config,
+                surfaces: [
+                  ...config.surfaces,
+                  {
+                    id: uid(),
+                    name: `surface-${config.surfaces.length + 1}`,
+                    materializeBase: true,
+                    baseByMode: Object.fromEntries(
+                      modes.map((m) => [
+                        m,
+                        { kind: "raw", value: "#dddddd" } as SurfaceBaseValue,
+                      ])
+                    ),
+                  },
+                ],
+              })
+            }
+          >
+            <Plus className="h-3.5 w-3.5" /> Add surface
+          </Button>
+        </div>
+
+        <div className="overflow-hidden rounded-lg border">
+          {/* header band */}
+          <div
+            className="grid items-center gap-2 bg-muted/40 px-2 py-1.5"
+            style={{ gridTemplateColumns: surfaceGrid }}
+          >
+            <span />
+            <span className="text-[11px] font-medium text-muted-foreground">Name</span>
+            {modes.map((mode, i) => (
+              <div key={mode} className="col-span-2">
+                <ModeHeader
+                  name={mode}
+                  index={i}
+                  total={modes.length}
+                  collection={collection}
+                />
+              </div>
             ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+            <span />
+          </div>
+
+          {config.surfaces.map((surface, index) => {
+            const expanded = expandSurfaceModes(surface, modes);
+            return (
+              <div
+                key={surface.id}
+                className="grid items-center gap-2 border-t px-2 py-2"
+                style={{ gridTemplateColumns: surfaceGrid }}
+              >
+                <div className="flex flex-col items-center">
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    onClick={() => moveSurface(index, -1)}
+                    className="text-muted-foreground/60 hover:text-foreground disabled:opacity-20"
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === config.surfaces.length - 1}
+                    onClick={() => moveSurface(index, 1)}
+                    className="text-muted-foreground/60 hover:text-foreground disabled:opacity-20"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <Input
+                  value={surface.name}
+                  onChange={(e) => patchSurface(surface.id, { name: e.target.value })}
+                  className="h-8 font-mono text-xs"
+                />
+                {modes.map((mode) => {
+                  const explicitBase = surface.baseByMode[mode] !== undefined;
+                  const explicitFg = surface.fgByMode?.[mode] !== undefined;
+                  const inheritedBase = mode !== primary && !explicitBase;
+                  const inheritedFg = mode !== primary && !explicitFg;
+                  const baseHex = resolveSurfaceBaseHex(
+                    expanded.baseByMode[mode],
+                    mode,
+                    resolveBaseHex
+                  );
+                  const autoFg: "light" | "dark" | null = baseHex
+                    ? hexToOklch(baseHex).l < threshold
+                      ? "light"
+                      : "dark"
+                    : null;
+                  return (
+                    <Fragment key={mode}>
+                      <BaseCell
+                        value={expanded.baseByMode[mode]}
+                        mode={mode}
+                        inherited={inheritedBase}
+                        resolveBaseHex={resolveBaseHex}
+                        onChange={(base) =>
+                          patchSurface(surface.id, {
+                            baseByMode: { ...surface.baseByMode, [mode]: base },
+                          })
+                        }
+                        onReset={
+                          mode !== primary && explicitBase
+                            ? () => {
+                                const { [mode]: _, ...rest } = surface.baseByMode;
+                                patchSurface(surface.id, { baseByMode: rest });
+                              }
+                            : undefined
+                        }
+                      />
+                      <FgPicker
+                        fg={expanded.fgByMode?.[mode] ?? { kind: "auto" }}
+                        autoFg={autoFg}
+                        mode={mode}
+                        inherited={inheritedFg}
+                        resolveBaseHex={resolveBaseHex}
+                        onChange={(fg) =>
+                          patchSurface(surface.id, {
+                            fgByMode: { ...(surface.fgByMode ?? {}), [mode]: fg },
+                          })
+                        }
+                        onReset={
+                          mode !== primary && explicitFg
+                            ? () => {
+                                const { [mode]: _, ...rest } = surface.fgByMode ?? {};
+                                patchSurface(surface.id, { fgByMode: rest });
+                              }
+                            : undefined
+                        }
+                      />
+                    </Fragment>
+                  );
+                })}
+                <div className="flex items-center justify-end gap-0.5">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent">
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <div className="flex items-center justify-between px-2 py-1.5 text-xs">
+                        <span title="Emit the surface base itself as a token">
+                          Materialize base
+                        </span>
+                        <Switch
+                          checked={surface.materializeBase ?? false}
+                          onCheckedChange={(materializeBase) =>
+                            patchSurface(surface.id, { materializeBase })
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between px-2 py-1.5 text-xs">
+                        <span title="Drop the surface prefix on level tokens (fg instead of bg.fg)">
+                          Bare levels
+                        </span>
+                        <Switch
+                          checked={surface.bareLevels ?? false}
+                          onCheckedChange={(bareLevels) =>
+                            patchSurface(surface.id, { bareLevels })
+                          }
+                        />
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <button
+                    type="button"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-destructive"
+                    title="Delete surface"
+                    onClick={() =>
+                      update({
+                        ...config,
+                        surfaces: config.surfaces.filter((s) => s.id !== surface.id),
+                      })
+                    }
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* ===== MATRIX ===== */}
-      <MatrixSection config={config} onPatchSurface={patchSurface} />
+      <MatrixSection
+        config={config}
+        modes={modes}
+        threshold={threshold}
+        resolveBaseHex={resolveBaseHex}
+        resolveScaleStep={resolveScaleStep}
+        pageBgByMode={pageBgByMode}
+        onPatchSurface={patchSurface}
+      />
+
+      {/* ===== RULES ===== */}
+      <section className="space-y-2">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Rules
+          </h3>
+          <div className="ml-auto flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              Preview:
+              <Select
+                value={previewSurface?.id ?? ""}
+                onValueChange={(v) => v && setPreviewSurfaceId(v)}
+              >
+                <SelectTrigger className="h-7 w-32 text-xs">
+                  <SelectValue>{previewSurface?.name ?? "…"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {config.surfaces.map((s) => (
+                    <SelectItem key={s.id} value={s.id} className="font-mono text-xs">
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium transition hover:bg-accent">
+                <Plus className="h-3.5 w-3.5" /> Add rule
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {(Object.keys(RULE_KIND_LABELS) as SurfaceLevelRule["kind"][]).map(
+                  (kind) => {
+                    const KIcon = RULE_KIND_ICONS[kind];
+                    return (
+                      <DropdownMenuItem
+                        key={kind}
+                        className="text-xs"
+                        onClick={() =>
+                          update({
+                            ...config,
+                            levels: [...config.levels, defaultLevelForKind(kind)],
+                          })
+                        }
+                      >
+                        <KIcon className="h-3 w-3" /> {RULE_KIND_LABELS[kind]}
+                      </DropdownMenuItem>
+                    );
+                  }
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-lg border">
+          <div className="grid grid-cols-[1.5rem_2.25rem_9rem_1fr_1fr_3.5rem] items-center gap-2 bg-muted/40 px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+            <span />
+            <span>Type</span>
+            <span>Name</span>
+            <span>{modes[0] ?? "light"} mode</span>
+            <span>{modes[1] ?? "dark"} mode</span>
+            <span />
+          </div>
+          {config.levels.map((level, i) => (
+            <RuleRow
+              key={level.id}
+              level={level}
+              levels={config.levels}
+              previewSurface={previewSurface}
+              modes={modes}
+              threshold={threshold}
+              resolveBaseHex={resolveBaseHex}
+              resolveScaleStep={resolveScaleStep}
+              pageBgByMode={pageBgByMode}
+              canMoveUp={i > 0}
+              canMoveDown={i < config.levels.length - 1}
+              onChange={(next) =>
+                update({
+                  ...config,
+                  levels: config.levels.map((l) => (l.id === next.id ? next : l)),
+                })
+              }
+              onMove={(dir) => {
+                const j = i + dir;
+                const next = [...config.levels];
+                [next[i], next[j]] = [next[j], next[i]];
+                update({ ...config, levels: next });
+              }}
+              onRemove={() =>
+                update({
+                  ...config,
+                  levels: config.levels.filter((l) => l.id !== level.id),
+                })
+              }
+            />
+          ))}
+        </div>
+      </section>
 
       {/* ===== PREVIEW ===== */}
-      <div className="space-y-2">
+      <section className="space-y-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Preview{dirty ? " (unsaved)" : ""}
         </h3>
         <SurfacesPreview config={config} modes={modes} />
-      </div>
+      </section>
     </div>
   );
 }
