@@ -27,6 +27,7 @@
     "@base-ui/react": "^1.6.0",
     "@fontsource-variable/geist": "^5.2.9",
     "@hono/node-server": "^1.14.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "bezier-easing": "^2.1.0",
     "chokidar": "^4.0.3",
     "class-variance-authority": "^0.7.1",

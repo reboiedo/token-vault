@@ -613,6 +613,42 @@ export class FileStore extends EventEmitter {
     await this.commit([p.collection]);
   }
 
+  async createCollection(p: {
+    name: string;
+    modes?: string[];
+  }): Promise<void> {
+    if (!/^[a-z0-9][a-z0-9-]*$/i.test(p.name)) {
+      throw new Error(
+        `Collection name "${p.name}" must be a simple identifier (it becomes the filename)`
+      );
+    }
+    if (this.source.some((c) => c.name === p.name)) {
+      throw new Error(`Collection "${p.name}" already exists`);
+    }
+    this.source = [
+      ...this.source,
+      { name: p.name, modes: p.modes ?? ["default"], tokens: [] },
+    ];
+    this.system = {
+      ...this.system,
+      collections: [...this.system.collections, p.name],
+    };
+    await this.commit([p.name], { system: true });
+  }
+
+  async removeCollection(p: { name: string }): Promise<void> {
+    if (!this.source.some((c) => c.name === p.name)) {
+      throw new Error(`Unknown collection "${p.name}"`);
+    }
+    this.source = this.source.filter((c) => c.name !== p.name);
+    this.system = {
+      ...this.system,
+      collections: this.system.collections.filter((n) => n !== p.name),
+    };
+    await fs.rm(this.collectionPath(p.name), { force: true });
+    await this.commit([], { system: true });
+  }
+
   async updateSystem(p: {
     fluid?: SystemDoc["fluid"];
     useTailwindColors?: boolean;

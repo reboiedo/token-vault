@@ -49,6 +49,8 @@ export async function startServer(store: FileStore, opts: ServerOptions) {
     "updateGeneratorConfig",
     "removeGenerator",
     "updateSurfacesConfig",
+    "createCollection",
+    "removeCollection",
     "updateSystem",
   ] as const;
   type MutationMethod = (typeof MUTATIONS)[number];

@@ -158,6 +158,19 @@ program
     }
   });
 
+program
+  .command("mcp")
+  .description("Run the MCP stdio server over the design system files")
+  .option("-d, --dir <dir>", "design system folder", "design-system")
+  .action(async (opts: { dir: string }) => {
+    const { startMcpServer } = await import("../mcp/index");
+    try {
+      await startMcpServer(resolveDir(opts.dir));
+    } catch (err) {
+      reportLoadError(err);
+    }
+  });
+
 program.parseAsync().catch((err) => {
   console.error(err);
   process.exit(1);
