@@ -29,10 +29,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  getTailwindColorsByFamily,
-  TAILWIND_FAMILY_NAMES,
-} from "@core/tailwind-colors";
+import { getTailwindColorsByFamily } from "@core/tailwind-colors";
 
 /**
  * Family-grouped Tailwind color items for an existing Command list.
@@ -51,9 +48,6 @@ export function TailwindColorCommandGroup({
     <CommandGroup heading={heading}>
       {Object.entries(byFamily).map(([family, colors]) => (
         <React.Fragment key={family}>
-          <div className="text-[10px] font-medium text-muted-foreground px-2 py-0.5">
-            {TAILWIND_FAMILY_NAMES[family] || family}
-          </div>
           {colors.map((color) => (
             <CommandItem
               key={color.name}
