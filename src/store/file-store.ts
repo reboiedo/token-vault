@@ -632,7 +632,7 @@ export class FileStore extends EventEmitter {
     if (!c.generators?.some((g) => g.id === p.generatorId)) {
       throw new Error(`Unknown generator "${p.generatorId}"`);
     }
-    this.replaceSource({
+    const next: CollectionDoc = {
       ...c,
       generators: c.generators.map((g) =>
         g.id === p.generatorId
@@ -645,8 +645,37 @@ export class FileStore extends EventEmitter {
             }
           : g
       ),
-    });
-    await this.commit([p.collection]);
+    };
+    this.replaceSource(next);
+
+    // Generated-name cascade: a groupPrefix / color-family / step rename
+    // changes the names of generated tokens, and references elsewhere
+    // (aliases, surfaces bases, expressions) must follow — generated
+    // names are identity like any other. Generation order is
+    // deterministic (config order × steps), so when the old and new
+    // outputs have the SAME length we can zip them positionally and
+    // rewrite every name that changed. Length changes (steps added or
+    // removed) have no stable mapping — `token-vault check` flags any
+    // refs left dangling.
+    const oldNames = computeGeneratedForCollection(c, this.system).map(
+      (t) => t.name
+    );
+    const newNames = computeGeneratedForCollection(next, this.system).map(
+      (t) => t.name
+    );
+    const touched = new Set<string>([p.collection]);
+    if (oldNames.length === newNames.length) {
+      const renames = new Map<string, string>();
+      for (let i = 0; i < oldNames.length; i++) {
+        if (oldNames[i] !== newNames[i]) renames.set(oldNames[i], newNames[i]);
+      }
+      if (renames.size > 0) {
+        const rewritten = rewriteRefs(this.source, renames);
+        this.source = rewritten.collections;
+        for (const name of rewritten.touched) touched.add(name);
+      }
+    }
+    await this.commit(touched);
   }
 
   async removeGenerator(p: {

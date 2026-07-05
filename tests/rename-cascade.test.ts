@@ -225,6 +225,55 @@ describe("FileStore rename cascade (on demo fixture)", () => {
     expect(() => readCollection("semantic")).toThrow();
   });
 
+  it("renaming a color family cascades refs to its generated tokens", async () => {
+    // brand.accent aliases color.blue.600 (generated); semantic's brand
+    // surface bases point at color.blue.600/400. Rename the family.
+    const core = store
+      .snapshot()
+      .collections.find((c) => c.name === "core")!;
+    const gen = core.generators!.find((g) => g.type === "color")!;
+    const config = JSON.parse(JSON.stringify(gen.config)) as typeof gen.config;
+    if (config.type !== "color") throw new Error("wrong generator");
+    config.colorScaleConfig.families[0].name = "azure";
+    await store.updateGeneratorConfig({
+      collection: "core",
+      generatorId: gen.id,
+      config,
+    });
+
+    const coreFile = readCollection("core");
+    const accent = coreFile.tokens.find(
+      (t: { name: string }) => t.name === "brand.accent"
+    );
+    expect(accent.values.default).toBe("{color.azure.600}");
+    const semantic = readCollection("semantic");
+    const brand = semantic.surfacesConfig.surfaces.find(
+      (s: { name: string }) => s.name === "surface.brand"
+    );
+    expect(brand.baseByMode.light.token).toBe("color.azure.600");
+    expect(brand.baseByMode.dark.token).toBe("color.azure.400");
+    expect(store.findDanglingRefs()).toEqual([]);
+  });
+
+  it("changing a generator's groupPrefix cascades refs", async () => {
+    const core = store
+      .snapshot()
+      .collections.find((c) => c.name === "core")!;
+    const gen = core.generators!.find((g) => g.type === "color")!;
+    await store.updateGeneratorConfig({
+      collection: "core",
+      generatorId: gen.id,
+      config: gen.config,
+      groupPrefix: "palette",
+    });
+    const coreFile = readCollection("core");
+    const accent = coreFile.tokens.find(
+      (t: { name: string }) => t.name === "brand.accent"
+    );
+    expect(accent.values.default).toBe("{palette.blue.600}");
+    expect(store.findDanglingRefs()).toEqual([]);
+  });
+
   it("updateToken writes the new value shape to disk", async () => {
     await store.updateToken({
       name: "brand.muted",
