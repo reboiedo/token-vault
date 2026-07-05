@@ -55,10 +55,38 @@ export async function startMcpServer(dir: string): Promise<void> {
   const store = await FileStore.open(dir);
   await store.startWatching();
 
-  const server = new McpServer({
-    name: "token-vault",
-    version: "0.1.0",
-  });
+  const INSTRUCTIONS = [
+      "token-vault design-token editor. Tokens are JSON files in the repo;",
+      "git is history and rollback (suggest committing before big sessions).",
+      "",
+      "Workflow: 1) get_context, then get_tokens_snapshot / get_tokens /",
+      "list_generators to read. 2) Edit. 3) After color or surfaces changes",
+      "run analyze_accessibility (APCA: |Lc| >= 60 body, >= 45 large, >= 30 min).",
+      "",
+      "Hard rules:",
+      "- NEVER edit tokens flagged generated:true - they recompute from",
+      "  generator/surfaces configs. Edit the config via update_generator /",
+      "  update_surfaces instead. Renames inside a config (groupPrefix, color",
+      "  family, step names) cascade to all references automatically.",
+      "- Rename tokens with rename_token (rewrites every reference), never by",
+      "  delete+create.",
+      "- Round-trip configs faithfully: change only what you mean to; never",
+      "  drop fields you don't understand (channel overrides, per-mode",
+      "  branches and per-cell overrides are hand-tuned and sacred).",
+      "- Colors are OKLCH; prefer aliases/derivations over hardcoded hex for",
+      "  semantic tokens. Spacing/typography are fluid clamp() - use the",
+      "  spacing generator's fixedValues for static primitives.",
+      "",
+      "Token values accept the FILE encoding, same as collections/*.json:",
+      'plain scalar = raw, "{token.name}" = alias, {"$tw":"slate-500"},',
+      '{"$derive":{base,ops}}, {"$expr":"a * 2"}, {"$composite":{...}} or',
+      '{"$composite":[{...}]} for shadow/gradient layers - copy what you read.',
+  ].join("\n");
+
+  const server = new McpServer(
+    { name: "token-vault", version: "0.1.0" },
+    { instructions: INSTRUCTIONS }
+  );
 
   // ==========================================================================
   // READS

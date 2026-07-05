@@ -47,17 +47,30 @@ watcher keeps everything in sync, live.
   Style Dictionary and friends. `token-vault check` validates the
   source (dangling refs included) — CI-friendly.
 
-## MCP (agents)
+## AI agents
+
+token-vault is built to be agent-editable. Three doors, all converging
+on the same files:
 
 ```bash
-npx token-vault mcp   # stdio server over the same files
+npx token-vault mcp -d design-system   # stdio MCP server (preferred)
 ```
 
-Point Claude Code (or any MCP client) at it and agents can read,
-create, update and rename tokens, edit generator/surfaces configs, run
-APCA accessibility reports and bake DTCG — no API keys, no rate limits.
-Writes land in the files; a running `token-vault dev` picks them up
-live.
+Point Claude Code (or any MCP client) at it: 14 tools to read, create,
+update and rename tokens, edit generator/surfaces configs, run APCA
+accessibility reports and bake DTCG — no API keys, no rate limits. The
+server ships its own instructions, so any client learns the rules on
+connect. Agents can also **edit the JSON files directly** (validate
+with `token-vault check`) or hit `POST /api/rpc` on a running dev
+server. Writes land in the files; a running `token-vault dev` picks
+them up live.
+
+- **Full agent reference**: [`docs/agents.md`](docs/agents.md) — file
+  format, every value encoding, generator/surfaces schemas, tools, RPC.
+- **Scaffolded guidance**: `token-vault init` drops an `AGENTS.md` into
+  the design-system folder so agents opening the repo know the rules.
+- **Claude Code skill**: copy [`skills/token-vault/`](skills/token-vault/)
+  into `~/.claude/skills/` (or your project's `.claude/skills/`).
 
 ## Commands
 
