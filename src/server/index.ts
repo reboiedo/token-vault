@@ -43,6 +43,7 @@ export async function startServer(store: FileStore, opts: ServerOptions) {
     "reorderTokens",
     "addMode",
     "renameMode",
+    "removeMode",
     "reorderModes",
     "updateGroupOrder",
     "addGenerator",
@@ -51,6 +52,7 @@ export async function startServer(store: FileStore, opts: ServerOptions) {
     "updateSurfacesConfig",
     "createCollection",
     "removeCollection",
+    "renameCollection",
     "updateSystem",
   ] as const;
   type MutationMethod = (typeof MUTATIONS)[number];

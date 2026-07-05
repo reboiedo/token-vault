@@ -195,6 +195,36 @@ describe("FileStore rename cascade (on demo fixture)", () => {
     ).toBe("#0a0a0a");
   });
 
+  it("removeMode drops the mode from values and surfaces maps", async () => {
+    await store.removeMode({ collection: "semantic", mode: "dark" });
+    const semantic = readCollection("semantic");
+    expect(semantic.modes).toEqual(["light"]);
+    expect(semantic.tokens[0].values.dark).toBeUndefined();
+    expect(
+      semantic.surfacesConfig.surfaces[0].baseByMode.dark
+    ).toBeUndefined();
+  });
+
+  it("removeMode protects default and the last mode", async () => {
+    await expect(
+      store.removeMode({ collection: "core", mode: "default" })
+    ).rejects.toThrow(/cannot be removed/);
+    await store.removeMode({ collection: "semantic", mode: "dark" });
+    await expect(
+      store.removeMode({ collection: "semantic", mode: "light" })
+    ).rejects.toThrow(/at least one mode/);
+  });
+
+  it("renameCollection renames the file and the system entry", async () => {
+    await store.renameCollection({ name: "semantic", newName: "theme" });
+    const system = JSON.parse(
+      readFileSync(path.join(dir, "system.json"), "utf8")
+    );
+    expect(system.collections).toEqual(["core", "theme"]);
+    expect(readCollection("theme").name).toBe("theme");
+    expect(() => readCollection("semantic")).toThrow();
+  });
+
   it("updateToken writes the new value shape to disk", async () => {
     await store.updateToken({
       name: "brand.muted",

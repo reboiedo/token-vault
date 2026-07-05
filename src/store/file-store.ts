@@ -535,6 +535,63 @@ export class FileStore extends EventEmitter {
     await this.commit([p.collection]);
   }
 
+  /**
+   * Remove a mode: drops the mode key from every token's values and
+   * from the surfaces config's per-mode maps. "default" and the last
+   * remaining mode are protected (mirrors the cloud's EditThemesDialog).
+   */
+  async removeMode(p: { collection: string; mode: string }): Promise<void> {
+    const c = this.findSource(p.collection);
+    if (!c.modes.includes(p.mode)) throw new Error(`Unknown mode "${p.mode}"`);
+    if (p.mode === "default") throw new Error(`The "default" mode cannot be removed`);
+    if (c.modes.length <= 1) throw new Error("A collection needs at least one mode");
+    const dropKey = <V,>(rec: Record<string, V>): Record<string, V> =>
+      Object.fromEntries(Object.entries(rec).filter(([k]) => k !== p.mode));
+    const surfaces = c.surfacesConfig as SurfacesConfig | undefined;
+    this.replaceSource({
+      ...c,
+      modes: c.modes.filter((m) => m !== p.mode),
+      tokens: c.tokens.map((t) => ({ ...t, values: dropKey(t.values) })),
+      ...(surfaces
+        ? {
+            surfacesConfig: {
+              ...surfaces,
+              surfaces: surfaces.surfaces.map((s) => ({
+                ...s,
+                baseByMode: dropKey(s.baseByMode),
+                ...(s.fgByMode ? { fgByMode: dropKey(s.fgByMode) } : {}),
+              })),
+            },
+          }
+        : {}),
+    });
+    await this.commit([p.collection]);
+  }
+
+  async renameCollection(p: { name: string; newName: string }): Promise<void> {
+    if (p.name === p.newName) return;
+    if (!/^[a-z0-9][a-z0-9-]*$/i.test(p.newName)) {
+      throw new Error(
+        `Collection name "${p.newName}" must be a simple identifier (it becomes the filename)`
+      );
+    }
+    const c = this.findSource(p.name);
+    if (this.source.some((col) => col.name === p.newName)) {
+      throw new Error(`Collection "${p.newName}" already exists`);
+    }
+    this.source = this.source.map((col) =>
+      col.name === p.name ? { ...c, name: p.newName } : col
+    );
+    this.system = {
+      ...this.system,
+      collections: this.system.collections.map((n) =>
+        n === p.name ? p.newName : n
+      ),
+    };
+    await fs.rm(this.collectionPath(p.name), { force: true });
+    await this.commit([p.newName], { system: true });
+  }
+
   async reorderModes(p: { collection: string; modes: string[] }): Promise<void> {
     const c = this.findSource(p.collection);
     if ([...p.modes].sort().join() !== [...c.modes].sort().join()) {
@@ -654,6 +711,7 @@ export class FileStore extends EventEmitter {
     useTailwindColors?: boolean;
     exportLayout?: SystemDoc["exportLayout"];
     name?: string;
+    description?: string;
   }): Promise<void> {
     this.system = { ...this.system, ...p };
     await this.commit([], { system: true });

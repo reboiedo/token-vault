@@ -165,7 +165,11 @@ export interface Actions {
   reorderTokens(p: { collection: string; names: string[] }): Promise<void>;
   addMode(p: { collection: string; mode: string }): Promise<void>;
   renameMode(p: { collection: string; oldName: string; newName: string }): Promise<void>;
+  removeMode(p: { collection: string; mode: string }): Promise<void>;
   reorderModes(p: { collection: string; modes: string[] }): Promise<void>;
+  createCollection(p: { name: string; modes?: string[] }): Promise<void>;
+  removeCollection(p: { name: string }): Promise<void>;
+  renameCollection(p: { name: string; newName: string }): Promise<void>;
   updateGroupOrder(p: { collection: string; groupOrder: string[] }): Promise<void>;
   addGenerator(p: { collection: string; generator: GeneratorDef }): Promise<void>;
   updateGeneratorConfig(p: {
@@ -176,7 +180,7 @@ export interface Actions {
   }): Promise<void>;
   removeGenerator(p: { collection: string; generatorId: string }): Promise<void>;
   updateSurfacesConfig(p: { collection: string; config: SurfacesConfig | null }): Promise<void>;
-  updateSystem(p: Partial<Pick<SystemDoc, "fluid" | "useTailwindColors" | "exportLayout" | "name">>): Promise<void>;
+  updateSystem(p: Partial<Pick<SystemDoc, "fluid" | "useTailwindColors" | "exportLayout" | "name" | "description">>): Promise<void>;
 }
 
 export function useActions(): Actions {
@@ -195,7 +199,11 @@ export function useActions(): Actions {
       reorderTokens: make("reorderTokens"),
       addMode: make("addMode"),
       renameMode: make("renameMode"),
+      removeMode: make("removeMode"),
       reorderModes: make("reorderModes"),
+      createCollection: make("createCollection"),
+      removeCollection: make("removeCollection"),
+      renameCollection: make("renameCollection"),
       updateGroupOrder: make("updateGroupOrder"),
       addGenerator: make("addGenerator"),
       updateGeneratorConfig: make("updateGeneratorConfig"),

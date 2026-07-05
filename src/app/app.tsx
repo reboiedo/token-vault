@@ -5,6 +5,7 @@
  */
 
 import { useState } from "react";
+import { Settings2, SwatchBook } from "lucide-react";
 import {
   StoreProvider,
   useCollection,
@@ -13,6 +14,8 @@ import {
   useSystem,
 } from "./lib/store";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SettingsDialog } from "@/components/settings-dialog";
+import { EditThemesDialog } from "@/components/edit-themes-dialog";
 import { TokenTableView } from "./views/token-table";
 import { GeneratorEditorView } from "./views/generator-editor";
 import { SurfacesEditorView } from "./views/surfaces-editor";
@@ -32,6 +35,8 @@ function Shell() {
   const collections = useCollections();
   const serverError = useServerError();
   const [selected, setSelected] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [themesOpen, setThemesOpen] = useState(false);
   const active = useCollection(selected ?? collections[0]?.name ?? null);
 
   if (!system) {
@@ -48,9 +53,19 @@ function Shell() {
   return (
     <div className="flex h-screen font-sans text-sm">
       <aside className="w-56 shrink-0 space-y-1 border-r p-3">
-        <h1 className="px-2 pb-2 font-semibold tracking-tight">
-          {system.name}
-        </h1>
+        <div className="flex items-center gap-1 px-2 pb-2">
+          <h1 className="flex-1 truncate font-semibold tracking-tight">
+            {system.name}
+          </h1>
+          <button
+            type="button"
+            className="rounded p-1 text-muted-foreground transition hover:bg-accent"
+            title="Design system settings (viewport, breakpoints, export)"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
         {collections.map((c) => (
           <button
             key={c.name}
@@ -77,6 +92,7 @@ function Shell() {
         {active ? (
           <Tabs defaultValue="tokens" key={active.name}>
             <TabsList className="mb-3">
+
               <TabsTrigger value="tokens">Tokens</TabsTrigger>
               <TabsTrigger value="generators">
                 Generators
@@ -94,6 +110,16 @@ function Shell() {
                   </span>
                 )}
               </TabsTrigger>
+              {active.modes.length > 0 && active.modes[0] !== "default" && (
+                <button
+                  type="button"
+                  className="ml-2 inline-flex items-center gap-1 rounded-md border px-2 text-xs text-muted-foreground transition hover:bg-accent"
+                  onClick={() => setThemesOpen(true)}
+                  title="Add, rename, reorder or delete this collection's themes"
+                >
+                  <SwatchBook className="h-3 w-3" /> Themes
+                </button>
+              )}
             </TabsList>
             <TabsContent value="tokens">
               <TokenTableView collection={active} />
@@ -107,6 +133,14 @@ function Shell() {
           </Tabs>
         ) : (
           <div className="text-muted-foreground">No collections.</div>
+        )}
+        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+        {active && themesOpen && (
+          <EditThemesDialog
+            open={themesOpen}
+            onOpenChange={setThemesOpen}
+            collection={active}
+          />
         )}
       </main>
     </div>
