@@ -53,12 +53,15 @@ token-vault is built to be agent-editable. Three doors, all converging
 on the same files:
 
 ```bash
-npx token-vault mcp -d design-system   # stdio MCP server (preferred)
+npx token-vault mcp -d design-system   # local MCP server (preferred)
 ```
 
-Point Claude Code (or any MCP client) at it: 14 tools to read, create,
-update and rename tokens, edit generator/surfaces configs, run APCA
-accessibility reports and bake DTCG — no API keys, no rate limits. The
+"MCP" is the Model Context Protocol — the standard way agent clients
+talk to tools. **Nothing remote is involved**: the client launches this
+as a local child process over stdio (like an LSP language server) and
+it edits the same JSON files. 14 tools to read, create, update and
+rename tokens, edit generator/surfaces configs, run APCA accessibility
+reports and bake DTCG — no accounts, no API keys, no rate limits. The
 server ships its own instructions, so any client learns the rules on
 connect. Agents can also **edit the JSON files directly** (validate
 with `token-vault check`) or hit `POST /api/rpc` on a running dev

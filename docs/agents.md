@@ -17,9 +17,19 @@ the history**. There are no accounts, no API keys and no rate limits.
 | **Direct file edits** | Bulk/scripted changes, refactors | Edit `design-system/**/*.json`, then validate with `npx token-vault check`. |
 | **HTTP RPC** | A dev server is already running | `POST http://localhost:4477/api/rpc` `{"method": "...", "params": {...}}` — same method names as the store mutations. |
 
-All three converge: the dev server's watcher absorbs file edits and MCP
-writes the same way it absorbs human edits, and everything recomputes
-live. **Always finish by running `npx token-vault check`** — it catches
+**"MCP" here means the Model Context Protocol, not a remote service.**
+The server is a local child process (stdio) that your agent client
+launches and kills with the session — it reads and writes the same JSON
+files, with no network, accounts or keys involved. Register it in
+Claude Code with:
+
+```bash
+claude mcp add token-vault -- npx token-vault mcp -d design-system
+```
+
+All three doors converge: the dev server's watcher absorbs file edits
+and MCP writes the same way it absorbs human edits, and everything
+recomputes live. **Always finish by running `npx token-vault check`** — it catches
 dangling references and schema errors.
 
 ### Safety workflow

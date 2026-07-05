@@ -19,7 +19,8 @@ design-system also carries an `AGENTS.md`.
 1. **Pick the door.**
    - MCP (preferred if connected): tools named `get_context`,
      `get_tokens_snapshot`, `create_token`, `update_generator`, etc.
-     Start every session with `get_context`.
+     It's a local stdio child process editing the same files — nothing
+     remote. Start every session with `get_context`.
    - Files: edit `design-system/**/*.json` directly — the live editor
      absorbs external edits via its watcher.
    - RPC: if a dev server runs, `POST localhost:4477/api/rpc`

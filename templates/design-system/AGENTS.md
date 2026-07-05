@@ -9,7 +9,8 @@ token-vault repo).
 ## Editing
 
 Preferred: the MCP server — `npx token-vault mcp -d <this folder>`
-(stdio, 14 tools; `get_context` first). Direct file edits are fine too.
+(Model Context Protocol over stdio: a **local child process**, no
+remote service; 14 tools; `get_context` first). Direct file edits are fine too.
 If a dev server is running, `POST localhost:4477/api/rpc` works as well.
 
 **Always run `npx token-vault check -d <this folder>` after editing** —
