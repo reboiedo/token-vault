@@ -5,7 +5,7 @@
  * resolves against the live snapshot.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +41,34 @@ export function ExpressionEditor({
   onSave: (formula: string) => void | Promise<void>;
 }) {
   const [formula, setFormula] = useState(initialFormula);
+  const inputRef = useRef<HTMLInputElement>(null);
   const resolver = useResolver();
+  // Re-seed when the dialog is reused for another token/mode.
+  useEffect(() => setFormula(initialFormula), [initialFormula]);
+
+  // Insertable token names (resolvable to a number), capped like the cloud.
+  const available = useMemo(
+    () =>
+      resolver
+        .aliasOptions([])
+        .map((o) => o.name)
+        .filter((n) => rawToPx(resolver.resolveRaw(n)) !== null)
+        .sort()
+        .slice(0, 80),
+    [resolver]
+  );
+
+  const insertAtCursor = (name: string) => {
+    const el = inputRef.current;
+    const start = el?.selectionStart ?? formula.length;
+    const end = el?.selectionEnd ?? formula.length;
+    const next = `${formula.slice(0, start)}${name}${formula.slice(end)}`;
+    setFormula(next);
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(start + name.length, start + name.length);
+    });
+  };
 
   const parsed = useMemo(() => {
     try {
@@ -66,12 +93,30 @@ export function ExpressionEditor({
         </DialogHeader>
         <div className="space-y-3">
           <Input
+            ref={inputRef}
             value={formula}
             onChange={(e) => setFormula(e.target.value)}
             className="font-mono text-sm"
             placeholder="container * 0.75"
             autoFocus
           />
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground">
+              Available token names ({available.length})
+            </summary>
+            <div className="mt-1.5 flex max-h-28 flex-wrap gap-1 overflow-y-auto">
+              {available.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className="rounded border px-1.5 py-0.5 font-mono text-[10px] transition hover:bg-accent"
+                  onClick={() => insertAtCursor(n)}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </details>
           {!parsed.ok && (
             <p className="text-xs text-red-600">{parsed.error}</p>
           )}
@@ -90,7 +135,11 @@ export function ExpressionEditor({
                 );
               })}
               <span className="ml-auto font-mono text-xs text-muted-foreground">
-                {previewPx !== null ? `= ${Math.round(previewPx * 100) / 100}px` : "unresolved"}
+                {previewPx !== null
+                  ? `= ${Math.round(previewPx * 100) / 100}px`
+                  : /\/\s*0(?!\d)/.test(formula)
+                    ? "divide by zero?"
+                    : "unresolved"}
               </span>
             </div>
           )}

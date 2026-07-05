@@ -115,6 +115,15 @@ const OP_LABELS: Record<DerivationOp["op"], string> = {
   shift: "Shift",
 };
 
+const OP_DESCRIPTIONS: Record<DerivationOp["op"], string> = {
+  lighten: "+L in OKLCH",
+  darken: "−L in OKLCH",
+  mute: "C · (1 − x)",
+  mix: "lerp toward a token",
+  autoContrast: "black/white fg pick",
+  shift: "±L ±C, headroom-aware",
+};
+
 function defaultOp(op: DerivationOp["op"]): DerivationOp {
   switch (op) {
     case "lighten":
@@ -135,9 +144,10 @@ function defaultOp(op: DerivationOp["op"]): DerivationOp {
 function NumberField({
   label,
   value,
-  step = 0.05,
-  min,
-  max,
+  step = 0.01,
+  min = 0,
+  max = 1,
+  signed = false,
   onChange,
 }: {
   label: string;
@@ -145,20 +155,24 @@ function NumberField({
   step?: number;
   min?: number;
   max?: number;
+  signed?: boolean;
   onChange: (v: number) => void;
 }) {
   return (
-    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-      {label}
-      <Input
-        type="number"
+    <label className="flex min-w-0 flex-1 items-center gap-1.5 text-[11px] text-muted-foreground">
+      <span className="w-12 shrink-0">{label}</span>
+      <input
+        type="range"
         value={value}
         step={step}
         min={min}
         max={max}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-7 w-20 text-xs"
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="min-w-0 flex-1"
       />
+      <code className="w-12 shrink-0 text-right tabular-nums">
+        {signed && value >= 0 ? `+${value.toFixed(2)}` : value.toFixed(2)}
+      </code>
     </label>
   );
 }
@@ -187,6 +201,16 @@ export function DerivationEditor({
       return null;
     }
   }, [base, ops, resolver]);
+
+  const baseHex = useMemo(() => {
+    try {
+      return resolveDerivationToHex(base, [], (ref) => resolver.resolveRaw(ref));
+    } catch {
+      return null;
+    }
+  }, [base, resolver]);
+
+  const mixMissingTarget = ops.some((o) => o.op === "mix" && !o.with);
 
   const patchOp = (i: number, next: DerivationOp) =>
     setOps(ops.map((o, j) => (j === i ? next : o)));
@@ -303,6 +327,8 @@ export function DerivationEditor({
                         value={op.stepStrength}
                         min={-1}
                         max={1}
+                        step={0.025}
+                        signed
                         onChange={(stepStrength) =>
                           patchOp(i, { ...op, stepStrength })
                         }
@@ -310,7 +336,10 @@ export function DerivationEditor({
                       <NumberField
                         label="ΔC"
                         value={op.chromaDelta ?? 0}
-                        step={0.01}
+                        min={-0.4}
+                        max={0.4}
+                        step={0.005}
+                        signed
                         onChange={(chromaDelta) =>
                           patchOp(i, {
                             ...op,
@@ -321,9 +350,11 @@ export function DerivationEditor({
                     </>
                   )}
                   {op.op === "autoContrast" && (
-                    <span className="text-[11px] text-muted-foreground">
-                      black/white by luminance
-                    </span>
+                    <NumberField
+                      label="threshold"
+                      value={op.threshold ?? 0.6}
+                      onChange={(threshold) => patchOp(i, { ...op, threshold })}
+                    />
                   )}
                 </div>
                 <div className="flex shrink-0 items-center">
@@ -368,21 +399,36 @@ export function DerivationEditor({
               <SelectContent>
                 {(Object.keys(OP_LABELS) as DerivationOp["op"][]).map((op) => (
                   <SelectItem key={op} value={op} className="text-xs">
-                    {OP_LABELS[op]}
+                    <span className="flex flex-col">
+                      <span>{OP_LABELS[op]}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {OP_DESCRIPTIONS[op]}
+                      </span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Preview */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Result</span>
+          {/* Base → Result preview, like the cloud */}
+          <div className="flex items-center gap-3 text-xs">
+            <span className="text-muted-foreground">Base</span>
             <span
-              className="h-6 w-6 rounded border"
+              className="h-10 w-10 rounded border"
+              style={{ background: baseHex ?? "transparent" }}
+            />
+            <span className="text-muted-foreground">→</span>
+            <span
+              className="h-10 w-10 rounded border"
               style={{ background: previewHex ?? "transparent" }}
             />
             <code>{previewHex ?? "—"}</code>
+            {ops.length === 0 && (
+              <span className="text-[10px] text-muted-foreground">
+                No ops yet — result equals the base.
+              </span>
+            )}
           </div>
         </div>
 
@@ -391,7 +437,8 @@ export function DerivationEditor({
             Cancel
           </Button>
           <Button
-            disabled={base.kind === "token" && !base.token}
+            disabled={(base.kind === "token" && !base.token) || mixMissingTarget}
+            title={mixMissingTarget ? "A mix op needs a target token." : undefined}
             onClick={async () => {
               await onSave(base, ops);
               onOpenChange(false);

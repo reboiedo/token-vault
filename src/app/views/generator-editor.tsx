@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ColorScaleEditor } from "@/components/color-scale-editor";
 import { SpacingScaleEditor } from "@/components/spacing-scale-editor";
-import { TypographyScaleEditor } from "@/components/scale-editors";
+import { TypographyScaleEditor } from "@/components/typography-scale-editor";
 import type { CollectionDoc, GeneratorDef } from "@core/types";
 import { useActions, useSystem } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -205,6 +205,7 @@ export function GeneratorEditorView({
           key={selected.id}
           initialConfig={selected.config.typographyConfig}
           viewport={viewport}
+          breakpoints={system?.fluid.breakpoints ?? []}
           onSave={(typographyConfig) =>
             save(selected, { type: "typography", typographyConfig })
           }
