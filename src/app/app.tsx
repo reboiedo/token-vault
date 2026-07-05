@@ -57,10 +57,11 @@ import {
   CreateCollectionDialog,
   JsonPreviewDialog,
 } from "@/components/shell-dialogs";
+import { TokenEditorDialog } from "@/components/token-editor-dialog";
 import { TokenTableView } from "./views/token-table";
 import { GeneratorEditorView } from "./views/generator-editor";
 import { SurfacesEditorView } from "./views/surfaces-editor";
-import type { CollectionDoc, GeneratorDef } from "@core/types";
+import type { CollectionDoc, GeneratorDef, TokenDoc } from "@core/types";
 import type { SurfacesConfig } from "@core/surfaces-utils";
 
 export function App() {
@@ -204,6 +205,7 @@ function MainPage() {
   const [addGenOpen, setAddGenOpen] = useState(false);
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
   const [autoFocusToken, setAutoFocusToken] = useState<string | null>(null);
+  const [editingToken, setEditingToken] = useState<TokenDoc | null>(null);
 
   const totalTokens = collections.reduce((n, c) => n + c.tokens.length, 0);
   const hasSurfaces = !!(active?.surfacesConfig as SurfacesConfig | undefined);
@@ -330,7 +332,20 @@ function MainPage() {
             collection={active}
             filterGroup={filterGroup}
             autoFocusToken={autoFocusToken}
+            onEditDetails={setEditingToken}
           />
+
+          {editingToken && (
+            <TokenEditorDialog
+              open={!!editingToken}
+              onOpenChange={(open) => !open && setEditingToken(null)}
+              token={
+                active.tokens.find((t) => t.name === editingToken.name) ??
+                editingToken
+              }
+              collection={active}
+            />
+          )}
 
           <AddGeneratorDialog
             open={addGenOpen}

@@ -441,7 +441,7 @@ function TokenRow({
           className="border-b border-neutral-100 py-1 pr-2 dark:border-neutral-800"
           style={{ width: width(mode), maxWidth: width(mode) }}
         >
-          <ValueCell token={token} mode={mode} />
+          <ValueCell token={token} mode={mode} baseMode={collection.modes[0]} />
         </td>
       ))}
       <td className="border-b border-neutral-100 dark:border-neutral-800" />
@@ -551,7 +551,7 @@ function GroupRows({
           </td>
           {collection.modes.map((mode) => (
             <td key={mode} className="border-b py-1 pr-2" style={{ width: width(mode), maxWidth: width(mode) }}>
-              <ValueCell token={node.baseToken!} mode={mode} />
+              <ValueCell token={node.baseToken!} mode={mode} baseMode={collection.modes[0]} />
             </td>
           ))}
           <td className="border-b" />
