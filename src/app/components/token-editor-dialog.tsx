@@ -9,7 +9,14 @@
  */
 
 import { useMemo, useState } from "react";
-import { Link as LinkIcon, Unlink } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Link as LinkIcon,
+  Plus,
+  Trash2,
+  Unlink,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +44,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ColorPickerPopover } from "./color-picker-popover";
-import type { CollectionDoc, CompositeLayer, TokenDoc, TokenValue } from "@core/types";
+import { Switch } from "@/components/ui/switch";
+import type {
+  CollectionDoc,
+  CompositeLayer,
+  CompositeSlot,
+  TokenDoc,
+  TokenValue,
+} from "@core/types";
 import { useActions, useCollections } from "@/lib/store";
 import { useResolver } from "@/lib/resolver";
 
@@ -176,6 +190,219 @@ function RawValueInput({
   }
 }
 
+/**
+ * Layered-composite editor for shadow / gradient tokens (each layer is
+ * a slot map; DTCG exports the array form). Goes beyond the cloud,
+ * which only offered plain-text editing for these types.
+ */
+const LAYER_SLOTS: Record<string, string[]> = {
+  shadow: ["color", "offsetX", "offsetY", "blur", "spread"],
+  gradient: ["color", "position"],
+};
+
+function layerPreviewCss(
+  type: string | undefined,
+  layers: CompositeLayer[],
+  resolve: (ref: string) => string | null
+): React.CSSProperties {
+  const val = (slot: CompositeSlot | undefined, fallback: string) =>
+    slot === undefined
+      ? fallback
+      : slot.type === "alias"
+        ? (resolve(slot.token) ?? fallback)
+        : String(slot.value);
+  if (type === "shadow") {
+    return {
+      boxShadow: layers
+        .map(
+          (l) =>
+            `${l.inset && val(l.inset, "") === "true" ? "inset " : ""}${val(l.offsetX, "0px")} ${val(l.offsetY, "0px")} ${val(l.blur, "0px")} ${val(l.spread, "0px")} ${val(l.color, "#0003")}`
+        )
+        .join(", "),
+    };
+  }
+  if (type === "gradient") {
+    const stops = layers
+      .map((l) => `${val(l.color, "#000")} ${Math.round(Number(val(l.position, "0")) * 100)}%`)
+      .join(", ");
+    return { background: `linear-gradient(90deg, ${stops})` };
+  }
+  return {};
+}
+
+function LayersEditor({
+  token,
+  mode,
+  layers,
+  onLayers,
+}: {
+  token: TokenDoc;
+  mode: string;
+  layers: CompositeLayer[];
+  onLayers: (next: CompositeLayer[]) => void;
+}) {
+  const resolver = useResolver();
+  const slots = LAYER_SLOTS[token.type ?? ""] ?? Object.keys(layers[0] ?? {});
+  const isShadow = token.type === "shadow";
+
+  const patchLayer = (i: number, slot: string, next: CompositeSlot) =>
+    onLayers(layers.map((l, j) => (j === i ? { ...l, [slot]: next } : l)));
+
+  const moveLayer = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= layers.length) return;
+    const next = [...layers];
+    [next[i], next[j]] = [next[j], next[i]];
+    onLayers(next);
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Live preview */}
+      <div className="flex h-12 items-center justify-center rounded-md border bg-muted/20 p-2">
+        <div
+          className="h-8 w-40 rounded-md bg-background"
+          style={layerPreviewCss(
+            token.type,
+            layers,
+            (ref) => resolver.resolveRaw(ref, mode)
+          )}
+        />
+      </div>
+
+      {layers.map((layer, i) => (
+        <div key={i} className="space-y-1.5 rounded-md border p-2">
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Layer {i + 1}
+            </span>
+            <div className="ml-auto flex items-center">
+              <Button variant="ghost" size="icon" className="h-5 w-5" disabled={i === 0} onClick={() => moveLayer(i, -1)}>
+                <ChevronUp className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
+                disabled={i === layers.length - 1}
+                onClick={() => moveLayer(i, 1)}
+              >
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 hover:text-destructive"
+                disabled={layers.length <= 1}
+                onClick={() => onLayers(layers.filter((_, j) => j !== i))}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+          {slots.map((slot) => {
+            const v = layer[slot];
+            return (
+              <div key={slot} className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-[11px] text-muted-foreground">{slot}</span>
+                {v?.type === "alias" ? (
+                  <>
+                    <span className="flex-1 truncate rounded bg-purple-100 px-1.5 py-1 font-mono text-xs text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                      {v.token}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title="Unlink"
+                      onClick={() =>
+                        patchLayer(i, slot, {
+                          type: "raw",
+                          value: resolver.resolveRaw(v.token, mode) ?? "",
+                        })
+                      }
+                    >
+                      <Unlink className="h-3 w-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {slot === "color" && (
+                      <ColorPickerPopover
+                        value={v ? String(v.value) : "#000000"}
+                        onChange={(hex) => patchLayer(i, slot, { type: "raw", value: hex })}
+                        swatchClassName="h-7 w-7"
+                      />
+                    )}
+                    <Input
+                      value={v !== undefined ? String(v.value) : ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const num = slot === "position" ? Number(raw) : NaN;
+                        patchLayer(i, slot, {
+                          type: "raw",
+                          value: slot === "position" && Number.isFinite(num) ? num : raw,
+                        });
+                      }}
+                      className="h-7 flex-1 font-mono text-xs"
+                      placeholder={slot === "position" ? "0 – 1" : slot === "color" ? "#000000" : "0px"}
+                    />
+                    <AliasPicker
+                      mode={mode}
+                      selfName={token.name}
+                      onPick={(name) => patchLayer(i, slot, { type: "alias", token: name })}
+                    >
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Link to token">
+                        <LinkIcon className="h-3 w-3" />
+                      </Button>
+                    </AliasPicker>
+                  </>
+                )}
+              </div>
+            );
+          })}
+          {isShadow && (
+            <div className="flex items-center gap-2">
+              <span className="w-20 shrink-0 text-[11px] text-muted-foreground">inset</span>
+              <Switch
+                checked={layer.inset?.type === "raw" && layer.inset.value === true}
+                onCheckedChange={(checked) => {
+                  if (checked) patchLayer(i, "inset", { type: "raw", value: true });
+                  else {
+                    const { inset: _drop, ...rest } = layer;
+                    onLayers(layers.map((l, j) => (j === i ? rest : l)));
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs"
+        onClick={() =>
+          onLayers([
+            ...layers,
+            token.type === "gradient"
+              ? { color: { type: "raw", value: "#8b5cf6" }, position: { type: "raw", value: 1 } }
+              : {
+                  color: { type: "raw", value: "#00000029" },
+                  offsetX: { type: "raw", value: "0px" },
+                  offsetY: { type: "raw", value: "2px" },
+                  blur: { type: "raw", value: "6px" },
+                  spread: { type: "raw", value: "0px" },
+                },
+          ])
+        }
+      >
+        <Plus className="h-3 w-3" /> Add layer
+      </Button>
+    </div>
+  );
+}
+
 function TypographySlots({
   token,
   mode,
@@ -309,7 +536,16 @@ export function TokenEditorDialog({
                   <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                     {mode}
                   </span>
-                  {value?.type === "composite" && !Array.isArray(value.layers) ? (
+                  {value?.type === "composite" && Array.isArray(value.layers) ? (
+                    <LayersEditor
+                      token={token}
+                      mode={mode}
+                      layers={value.layers}
+                      onLayers={(layers) =>
+                        writeMode(mode, { type: "composite", layers })
+                      }
+                    />
+                  ) : value?.type === "composite" && !Array.isArray(value.layers) ? (
                     <TypographySlots
                       token={token}
                       mode={mode}

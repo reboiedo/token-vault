@@ -61,6 +61,27 @@ export function defaultValueFor(type: TokenType): TokenValue {
           timingFunction: { type: "raw", value: "0.4, 0, 0.2, 1" },
         },
       };
+    case "shadow":
+      return {
+        type: "composite",
+        layers: [
+          {
+            color: { type: "raw", value: "#00000029" },
+            offsetX: { type: "raw", value: "0px" },
+            offsetY: { type: "raw", value: "1px" },
+            blur: { type: "raw", value: "3px" },
+            spread: { type: "raw", value: "0px" },
+          },
+        ],
+      };
+    case "gradient":
+      return {
+        type: "composite",
+        layers: [
+          { color: { type: "raw", value: "#3b82f6" }, position: { type: "raw", value: 0 } },
+          { color: { type: "raw", value: "#8b5cf6" }, position: { type: "raw", value: 1 } },
+        ],
+      };
     case "boolean":
       return { type: "raw", value: true };
     default:
@@ -72,6 +93,7 @@ const ADD_TOKEN_GROUPS: TokenType[][] = [
   ["color", "dimension", "number"],
   ["fontFamily", "fontWeight", "typography"],
   ["duration", "cubicBezier", "transition"],
+  ["shadow", "gradient"],
   ["string", "boolean"],
 ];
 

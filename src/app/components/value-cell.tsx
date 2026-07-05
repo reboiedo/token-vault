@@ -180,11 +180,14 @@ export function ValueCell({
   token,
   mode,
   baseMode,
+  onEditDetails,
 }: {
   token: TokenDoc;
   mode: string;
   /** First mode of the collection — inheritance source. */
   baseMode?: string;
+  /** Opens the token editor (layered shadow/gradient editing). */
+  onEditDetails?: () => void;
 }) {
   const actions = useActions();
   const system = useSystem();
@@ -236,10 +239,49 @@ export function ValueCell({
   // ---- composite -------------------------------------------------------
   if (value?.type === "composite") {
     if (Array.isArray(value.layers)) {
+      const layers = value.layers;
+      const resolve = (ref: string) => resolver.resolveRaw(ref, mode);
+      const slotVal = (l: (typeof layers)[number], slot: string, fb: string) => {
+        const v = l[slot];
+        return v === undefined
+          ? fb
+          : v.type === "alias"
+            ? (resolve(v.token) ?? fb)
+            : String(v.value);
+      };
+      const css: React.CSSProperties =
+        token.type === "gradient"
+          ? {
+              background: `linear-gradient(90deg, ${layers
+                .map(
+                  (l) =>
+                    `${slotVal(l, "color", "#000")} ${Math.round(Number(slotVal(l, "position", "0")) * 100)}%`
+                )
+                .join(", ")})`,
+            }
+          : {
+              boxShadow: layers
+                .map(
+                  (l) =>
+                    `${slotVal(l, "inset", "") === "true" ? "inset " : ""}${slotVal(l, "offsetX", "0px")} ${slotVal(l, "offsetY", "0px")} ${slotVal(l, "blur", "0px")} ${slotVal(l, "spread", "0px")} ${slotVal(l, "color", "#0003")}`
+                )
+                .join(", "),
+            };
       return (
-        <span className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-          {value.layers.length} layer(s)
-        </span>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded px-1 py-0.5 transition hover:bg-accent",
+            inherited && "opacity-50"
+          )}
+          title="Edit layers"
+          onClick={onEditDetails}
+        >
+          <span className="h-4 w-7 shrink-0 rounded border bg-background" style={css} />
+          <span className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+            {layers.length} layer{layers.length > 1 ? "s" : ""}
+          </span>
+        </button>
       );
     }
     const layer = value.layers;
