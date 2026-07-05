@@ -831,6 +831,16 @@ function buildCollectionGroup(
     if (collection.tailwind?.semantic?.modeSelectors) {
       extensionMeta.modeSelectors = collection.tailwind.semantic.modeSelectors;
     }
+    if (collection.tailwind?.enabled) {
+      // Tailwind v4 opt-in for this collection (utility mapping and/or
+      // semantic theming) — consumed by Tailwind-aware build tooling.
+      extensionMeta.tailwind = {
+        enabled: true,
+        ...(collection.tailwind.utility
+          ? { utility: collection.tailwind.utility }
+          : {}),
+      };
+    }
     // For themes collections with a surfaces helper, attach per-level
     // generic CSS expressions. Consumers can wire these once at :root
     // (set `--surface` + `--fg` per scope) and skip authoring
@@ -878,6 +888,19 @@ function buildCollectionGroup(
       const tokenObj = buildTokenObj(token, only);
       if (!tokenObj) continue;
       placeTokenInGroup(collectionGroup, token.name, tokenObj);
+    }
+    if (collection.tailwind?.enabled) {
+      collectionGroup["$extensions"] = {
+        ...(collectionGroup["$extensions"] as Record<string, unknown> | undefined),
+        "com.designsystembuilder": {
+          tailwind: {
+            enabled: true,
+            ...(collection.tailwind.utility
+              ? { utility: collection.tailwind.utility }
+              : {}),
+          },
+        },
+      };
     }
   }
 

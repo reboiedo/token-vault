@@ -3,10 +3,8 @@
  * the cloud's collection-header.tsx: name + color-coded kind badge,
  * Edit Themes (multi-mode collections), and the multi-type "Add Token"
  * dropdown that creates `untitled-<ts>` with per-type defaults and
- * hands the name back for auto-focus rename in the table.
- *
- * (The cloud's per-collection Tailwind export config button is not
- * ported yet — the `tailwind` extension stays editable in the files.)
+ * hands the name back for auto-focus rename in the table, plus the
+ * per-collection Tailwind export config popover.
  */
 
 import { useState } from "react";
@@ -20,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EditThemesDialog } from "./edit-themes-dialog";
+import { TailwindCollectionConfig } from "./tailwind-collection-config";
 import type { CollectionDoc, TokenType, TokenValue } from "@core/types";
 import { getEffectiveKind, KIND_BADGE_CLASSES } from "@/lib/collection-kind";
 import { useActions } from "@/lib/store";
@@ -117,6 +116,7 @@ export function CollectionHeader({
       >
         {kind}
       </span>
+      <TailwindCollectionConfig collection={collection} />
       {multiMode && (
         <Button
           variant="ghost"

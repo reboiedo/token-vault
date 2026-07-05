@@ -50,6 +50,7 @@ export async function startServer(store: FileStore, opts: ServerOptions) {
     "updateGeneratorConfig",
     "removeGenerator",
     "updateSurfacesConfig",
+    "updateCollectionTailwind",
     "createCollection",
     "removeCollection",
     "renameCollection",

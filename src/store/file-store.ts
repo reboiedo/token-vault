@@ -690,6 +690,15 @@ export class FileStore extends EventEmitter {
     await this.commit([p.collection]);
   }
 
+  async updateCollectionTailwind(p: {
+    collection: string;
+    tailwind: CollectionDoc["tailwind"] | null;
+  }): Promise<void> {
+    const c = this.findSource(p.collection);
+    this.replaceSource({ ...c, tailwind: p.tailwind ?? undefined });
+    await this.commit([p.collection]);
+  }
+
   async updateSurfacesConfig(p: {
     collection: string;
     config: SurfacesConfig | null;

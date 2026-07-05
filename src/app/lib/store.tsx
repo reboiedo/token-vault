@@ -180,6 +180,10 @@ export interface Actions {
   }): Promise<void>;
   removeGenerator(p: { collection: string; generatorId: string }): Promise<void>;
   updateSurfacesConfig(p: { collection: string; config: SurfacesConfig | null }): Promise<void>;
+  updateCollectionTailwind(p: {
+    collection: string;
+    tailwind: CollectionDoc["tailwind"] | null;
+  }): Promise<void>;
   updateSystem(p: Partial<Pick<SystemDoc, "fluid" | "useTailwindColors" | "exportLayout" | "name" | "description">>): Promise<void>;
 }
 
@@ -209,6 +213,7 @@ export function useActions(): Actions {
       updateGeneratorConfig: make("updateGeneratorConfig"),
       removeGenerator: make("removeGenerator"),
       updateSurfacesConfig: make("updateSurfacesConfig"),
+      updateCollectionTailwind: make("updateCollectionTailwind"),
       updateSystem: make("updateSystem"),
     } satisfies Actions;
   }, [client]);
