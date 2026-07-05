@@ -26,7 +26,7 @@ import { useActions } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 /** Per-type default values, mirroring the cloud's Add Token dropdown. */
-function defaultValueFor(type: TokenType): TokenValue {
+export function defaultValueFor(type: TokenType): TokenValue {
   switch (type) {
     case "color":
       return { type: "raw", value: "#cccccc" };
