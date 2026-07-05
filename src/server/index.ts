@@ -88,6 +88,14 @@ export async function startServer(store: FileStore, opts: ServerOptions) {
       rewriteRequestPath: (p) => (p === "/" ? "/index.html" : p),
     })
   );
+  // SPA fallback: client-routed paths (/generators/:id, /surfaces/:c)
+  // must survive a hard reload.
+  app.get("*", async (c) => {
+    const html = await import("node:fs/promises").then((fs) =>
+      fs.readFile(path.join(appDir, "index.html"), "utf8")
+    );
+    return c.html(html);
+  });
 
   const server = serve({ fetch: app.fetch, port: opts.port });
 

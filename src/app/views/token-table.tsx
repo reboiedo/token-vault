@@ -31,9 +31,15 @@ function groupOf(name: string): string {
   return dot < 0 ? "" : name.slice(0, dot);
 }
 
-function TokenNameCell({ token }: { token: TokenDoc }) {
+function TokenNameCell({
+  token,
+  autoFocus = false,
+}: {
+  token: TokenDoc;
+  autoFocus?: boolean;
+}) {
   const actions = useActions();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(autoFocus);
   const [draft, setDraft] = useState(token.name);
 
   if (token.generated) {
@@ -165,14 +171,34 @@ function NewTokenRow({
   );
 }
 
-export function TokenTableView({ collection }: { collection: CollectionDoc }) {
+export function TokenTableView({
+  collection,
+  filterGroup = null,
+  autoFocusToken = null,
+}: {
+  collection: CollectionDoc;
+  /** Show only tokens under this dotted prefix (from GroupsNav). */
+  filterGroup?: string | null;
+  /** Token name to open in rename mode (just-created tokens). */
+  autoFocusToken?: string | null;
+}) {
   const actions = useActions();
   const [adding, setAdding] = useState(false);
+
+  const visibleTokens = useMemo(
+    () =>
+      filterGroup
+        ? collection.tokens.filter(
+            (t) => t.name === filterGroup || t.name.startsWith(`${filterGroup}.`)
+          )
+        : collection.tokens,
+    [collection.tokens, filterGroup]
+  );
 
   // Group by first dotted segment; honor groupOrder, then discovery order.
   const groups = useMemo(() => {
     const byGroup = new Map<string, TokenDoc[]>();
-    for (const t of collection.tokens) {
+    for (const t of visibleTokens) {
       const g = groupOf(t.name);
       if (!byGroup.has(g)) byGroup.set(g, []);
       byGroup.get(g)!.push(t);
@@ -186,7 +212,7 @@ export function TokenTableView({ collection }: { collection: CollectionDoc }) {
     return order
       .filter((g) => byGroup.has(g))
       .map((g) => ({ group: g, tokens: byGroup.get(g)! }));
-  }, [collection]);
+  }, [collection, visibleTokens]);
 
   return (
     <div>
@@ -209,6 +235,7 @@ export function TokenTableView({ collection }: { collection: CollectionDoc }) {
               group={group}
               tokens={tokens}
               collection={collection}
+              autoFocusToken={autoFocusToken}
               onRemove={(name) => void actions.removeToken({ name })}
             />
           ))}
@@ -235,11 +262,13 @@ function GroupRows({
   group,
   tokens,
   collection,
+  autoFocusToken,
   onRemove,
 }: {
   group: string;
   tokens: TokenDoc[];
   collection: CollectionDoc;
+  autoFocusToken?: string | null;
   onRemove: (name: string) => void;
 }) {
   return (
@@ -257,7 +286,7 @@ function GroupRows({
       {tokens.map((t) => (
         <tr key={t.name} className="align-middle">
           <td className="border-b border-neutral-100 py-1 pr-4 dark:border-neutral-800">
-            <TokenNameCell token={t} />
+            <TokenNameCell token={t} autoFocus={t.name === autoFocusToken} />
           </td>
           {collection.modes.map((mode) => (
             <td

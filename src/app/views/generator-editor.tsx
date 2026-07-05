@@ -88,17 +88,21 @@ function defaultGenerator(type: GeneratorDef["type"]): GeneratorDef {
 
 export function GeneratorEditorView({
   collection,
+  onlyGeneratorId,
 }: {
   collection: CollectionDoc;
+  /** Dedicated-route mode: pin one generator and hide the switcher. */
+  onlyGeneratorId?: string;
 }) {
   const actions = useActions();
   const system = useSystem();
   const generators = collection.generators ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(
-    generators[0]?.id ?? null
+    onlyGeneratorId ?? generators[0]?.id ?? null
   );
   const selected =
-    generators.find((g) => g.id === selectedId) ?? generators[0] ?? null;
+    generators.find((g) => g.id === (onlyGeneratorId ?? selectedId)) ??
+    (onlyGeneratorId ? null : generators[0] ?? null);
   const viewport = system?.fluid.viewport ?? { minWidth: 360, maxWidth: 1240 };
 
   const save = (generator: GeneratorDef, config: GeneratorDef["config"]) =>
@@ -110,7 +114,7 @@ export function GeneratorEditorView({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={onlyGeneratorId ? "hidden" : "flex flex-wrap items-center gap-2"}>
         {generators.map((g) => (
           <button
             key={g.id}
