@@ -1,7 +1,7 @@
 {
   "name": "token-vault",
   "version": "0.1.0",
-  "description": "Local-first design token studio — tokens live as files in your repo, the editor runs on localhost, git is your history.",
+  "description": "Local-first design token studio \u2014 tokens live as files in your repo, the editor runs on localhost, git is your history.",
   "type": "module",
   "license": "MIT",
   "bin": {
@@ -9,7 +9,9 @@
   },
   "files": [
     "dist",
-    "templates"
+    "templates",
+    "docs",
+    "skills"
   ],
   "engines": {
     "node": ">=20"
