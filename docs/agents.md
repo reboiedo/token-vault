@@ -374,6 +374,15 @@ npx token-vault build [-d dir] [-o out]    # DTCG → dist/
 npx token-vault mcp   [-d dir]             # stdio MCP server
 ```
 
+## Figma sync sidecar (`.figma-ids.json`)
+
+The Figma plugin (pointed at `http://localhost:4477`) stores the Figma
+Variable/Collection ids it created in `design-system/.figma-ids.json`,
+keyed by token/collection NAME. The store cascades renames into it.
+Never edit it by hand; deleting it makes the next sync create fresh
+variables instead of updating existing ones. Endpoints:
+`GET /api/figma/tokens`, `POST /api/figma/sync-ids`.
+
 ## DTCG output (`dist/`)
 
 `build` / `export_dtcg` emit `tokens.json` (+ `$metadata.json`) in

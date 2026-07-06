@@ -15,6 +15,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FileStore } from "../store/file-store";
+import { registerFigmaRoutes } from "./figma";
 
 export interface ServerOptions {
   port: number;
@@ -30,6 +31,10 @@ export async function startServer(store: FileStore, opts: ServerOptions) {
   app.get("/api/health", (c) =>
     c.json({ ok: true, rev: store.snapshot().rev })
   );
+
+  // Figma plugin endpoints (see server/figma.ts) — CORS-open because the
+  // plugin UI runs in Figma's sandboxed iframe (null origin).
+  registerFigmaRoutes(app, store);
 
   // Mutation RPC. Methods map 1:1 to FileStore mutation methods; the
   // response is the fresh snapshot so the caller can apply it without

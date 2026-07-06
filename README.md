@@ -75,6 +75,16 @@ them up live.
 - **Claude Code skill**: copy [`skills/token-vault/`](skills/token-vault/)
   into `~/.claude/skills/` (or your project's `.claude/skills/`).
 
+## Figma
+
+The Token Vault Figma plugin syncs tokens to Figma Variables and text
+styles straight from the local server: run `npx token-vault dev`, open
+the plugin in **Figma desktop**, and enter `http://localhost:4477` in
+the connection field (instead of a cloud API key). Variable/collection
+ids are remembered in `design-system/.figma-ids.json` — commit it so
+re-syncs (by anyone on the team) update variables in place instead of
+duplicating. Renames cascade into it like any other reference.
+
 ## Commands
 
 | Command | |

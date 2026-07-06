@@ -45,6 +45,11 @@ import {
   rewriteRefs,
 } from "./rewrite-refs";
 
+export interface FigmaIdsFile {
+  collections: Record<string, { figmaId?: string; figmaFluidId?: string }>;
+  tokens: Record<string, { figmaId?: string; figmaTextStyleId?: string }>;
+}
+
 export interface LoadIssue {
   file: string;
   message: string;
@@ -428,6 +433,7 @@ export class FileStore extends EventEmitter {
         : c
     );
     touched.add(owner.name);
+    await this.patchFigmaTokenRenames(renames);
     await this.commit(touched);
   }
 
@@ -467,6 +473,7 @@ export class FileStore extends EventEmitter {
         : col
     );
     touched.add(p.collection);
+    await this.patchFigmaTokenRenames(renames);
     await this.commit(touched);
   }
 
@@ -589,6 +596,17 @@ export class FileStore extends EventEmitter {
       ),
     };
     await fs.rm(this.collectionPath(p.name), { force: true });
+    try {
+      await fs.access(this.figmaIdsPath());
+      const ids = await this.readFigmaIds();
+      if (ids.collections[p.name]) {
+        ids.collections[p.newName] = ids.collections[p.name];
+        delete ids.collections[p.name];
+        await this.writeFigmaIds(ids);
+      }
+    } catch {
+      // no sidecar - nothing to patch
+    }
     await this.commit([p.newName], { system: true });
   }
 
@@ -673,6 +691,7 @@ export class FileStore extends EventEmitter {
         const rewritten = rewriteRefs(this.source, renames);
         this.source = rewritten.collections;
         for (const name of rewritten.touched) touched.add(name);
+        await this.patchFigmaTokenRenames(renames);
       }
     }
     await this.commit(touched);
@@ -688,6 +707,79 @@ export class FileStore extends EventEmitter {
       generators: (c.generators ?? []).filter((g) => g.id !== p.generatorId),
     });
     await this.commit([p.collection]);
+  }
+
+  // ==========================================================================
+  // FIGMA SIDECAR — .figma-ids.json maps token/collection NAMES to the
+  // Figma Variable / Collection ids the plugin created, so re-syncs
+  // update in place instead of duplicating. Names are identity, so every
+  // rename (tokens, groups, generated names, collections) patches the
+  // sidecar too.
+  // ==========================================================================
+
+  private figmaIdsPath(): string {
+    return path.join(this.dir, ".figma-ids.json");
+  }
+
+  async readFigmaIds(): Promise<FigmaIdsFile> {
+    try {
+      const raw = JSON.parse(await fs.readFile(this.figmaIdsPath(), "utf8"));
+      return {
+        collections: raw.collections ?? {},
+        tokens: raw.tokens ?? {},
+      };
+    } catch {
+      return { collections: {}, tokens: {} };
+    }
+  }
+
+  async writeFigmaIds(ids: FigmaIdsFile): Promise<void> {
+    await this.writeFile(this.figmaIdsPath(), FileStore.stableJson(ids));
+  }
+
+  /** Merge the plugin's post-sync id report into the sidecar. */
+  async updateFigmaIds(p: {
+    collections?: Array<{ name: string; figmaId?: string; figmaFluidId?: string }>;
+    tokens?: Array<{ name: string; figmaId?: string; figmaTextStyleId?: string }>;
+  }): Promise<void> {
+    const ids = await this.readFigmaIds();
+    for (const c of p.collections ?? []) {
+      ids.collections[c.name] = {
+        ...ids.collections[c.name],
+        ...(c.figmaId !== undefined ? { figmaId: c.figmaId } : {}),
+        ...(c.figmaFluidId !== undefined ? { figmaFluidId: c.figmaFluidId } : {}),
+      };
+    }
+    for (const t of p.tokens ?? []) {
+      ids.tokens[t.name] = {
+        ...ids.tokens[t.name],
+        ...(t.figmaId !== undefined ? { figmaId: t.figmaId } : {}),
+        ...(t.figmaTextStyleId !== undefined
+          ? { figmaTextStyleId: t.figmaTextStyleId }
+          : {}),
+      };
+    }
+    await this.writeFigmaIds(ids);
+  }
+
+  /** Follow token renames in the sidecar (no-op when the file is absent). */
+  private async patchFigmaTokenRenames(renames: Map<string, string>): Promise<void> {
+    if (renames.size === 0) return;
+    try {
+      await fs.access(this.figmaIdsPath());
+    } catch {
+      return;
+    }
+    const ids = await this.readFigmaIds();
+    let changed = false;
+    for (const [oldName, newName] of renames) {
+      if (ids.tokens[oldName]) {
+        ids.tokens[newName] = ids.tokens[oldName];
+        delete ids.tokens[oldName];
+        changed = true;
+      }
+    }
+    if (changed) await this.writeFigmaIds(ids);
   }
 
   async updateCollectionTailwind(p: {
