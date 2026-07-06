@@ -1,0 +1,31 @@
+# Publishes to npm on every v* tag. Auth: NPM_TOKEN repo secret
+# (granular access token). Once the package exists on npm, this can
+# switch to trusted publishing (OIDC): configure the publisher on
+# npmjs.com and delete the NODE_AUTH_TOKEN line below.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # provenance (and OIDC once trusted publishing is on)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # prepublishOnly runs build + tests + typecheck before the upload.
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
