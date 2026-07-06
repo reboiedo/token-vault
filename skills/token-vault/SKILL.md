@@ -6,7 +6,7 @@ description: Edit design tokens in a local token-vault design system (design-sys
 # Editing design tokens (token-vault, local-first)
 
 Tokens are **files in the repo** (`design-system/` by default), the
-editor is `npx token-vault dev` on localhost, and **git is history and
+editor is `npx @rebo89/token-vault dev` on localhost, and **git is history and
 rollback**. No accounts, no rate limits. Full reference:
 `docs/agents.md` in the token-vault package/repo; each scaffolded
 design-system also carries an `AGENTS.md`.
@@ -27,7 +27,7 @@ design-system also carries an `AGENTS.md`.
      `{"method","params"}`.
 2. **Read before writing.** `get_context` → `get_tokens_snapshot`
    (cheapest full read) → `get_tokens` / `list_generators` for detail.
-3. **Verify after editing.** `npx token-vault check -d <dir>` catches
+3. **Verify after editing.** `npx @rebo89/token-vault check -d <dir>` catches
    dangling refs and schema errors — run it after EVERY session. After
    color/surfaces changes also run `analyze_accessibility`
    (APCA: |Lc| ≥ 60 body, ≥ 45 large, ≥ 30 minimum).
@@ -76,4 +76,4 @@ design-system also carries an `AGENTS.md`.
 - Spacing/typography are fluid `clamp()` driven by
   `system.json → fluid.viewport`; use spacing `fixedValues` for static
   px primitives (2, 4, 8…), never raw px that bypasses the scale.
-- `dist/` is build output (`npx token-vault build`) — never edit it.
+- `dist/` is build output (`npx @rebo89/token-vault build`) — never edit it.

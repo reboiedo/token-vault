@@ -6,8 +6,8 @@ no accounts, no cloud, no API limits. Think Storybook, for design
 tokens.
 
 ```bash
-npx token-vault init        # scaffold design-system/ in your repo
-npx token-vault dev         # open the editor at localhost:4477
+npx @rebo89/token-vault init        # scaffold design-system/ in your repo
+npx @rebo89/token-vault dev         # open the editor at localhost:4477
 ```
 
 ## How it works
@@ -53,7 +53,7 @@ token-vault is built to be agent-editable. Three doors, all converging
 on the same files:
 
 ```bash
-npx token-vault mcp -d design-system   # local MCP server (preferred)
+npx @rebo89/token-vault mcp -d design-system   # local MCP server (preferred)
 ```
 
 "MCP" is the Model Context Protocol — the standard way agent clients
@@ -78,7 +78,7 @@ them up live.
 ## Figma
 
 The Token Vault Figma plugin syncs tokens to Figma Variables and text
-styles straight from the local server: run `npx token-vault dev`, open
+styles straight from the local server: run `npx @rebo89/token-vault dev`, open
 the plugin in **Figma desktop**, and enter `http://localhost:4477` in
 the connection field (instead of a cloud API key). Variable/collection
 ids are remembered in `design-system/.figma-ids.json` — commit it so
