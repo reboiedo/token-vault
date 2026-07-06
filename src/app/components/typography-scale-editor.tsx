@@ -36,6 +36,7 @@ import {
   generateTypeScale,
   defaultTypeScale,
 } from "@core/fluid-utils";
+import { useExternalSave, type ExternalSaveProps } from "@/lib/external-save";
 
 // ============================================================================
 // Types
@@ -306,7 +307,7 @@ function TypeScaleChart({ steps, viewport, breakpoints = [], getStepName }: Type
 // Main Editor Component
 // ============================================================================
 
-interface TypographyScaleEditorProps {
+interface TypographyScaleEditorProps extends ExternalSaveProps {
   initialConfig?: StandaloneTypographyConfig;
   viewport: ViewportConfig;
   breakpoints?: number[];
@@ -318,6 +319,7 @@ export function TypographyScaleEditor({
   viewport,
   breakpoints = [],
   onSave,
+  ...rest
 }: TypographyScaleEditorProps) {
   // Local config state
   const [config, setConfig] = useState<StandaloneTypographyConfig>(
@@ -328,6 +330,12 @@ export function TypographyScaleEditor({
       JSON.stringify(config) !==
       JSON.stringify(initialConfig ?? { ...defaultTypeScale }),
     [config, initialConfig]
+  );
+  const external = useExternalSave(
+    rest,
+    isDirty,
+    () => onSave(config),
+    () => setConfig(initialConfig ?? { ...defaultTypeScale })
   );
 
   // Group fixed steps (minPx === maxPx) at the top, then fluid steps.
@@ -440,7 +448,7 @@ export function TypographyScaleEditor({
   // Save changes
   return (
     <div className="space-y-6">
-      {isDirty && (
+      {isDirty && !external && (
         <div className="flex items-center gap-1.5">
           <Button size="sm" className="h-7" onClick={() => void onSave(config)}>
             Save

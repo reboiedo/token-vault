@@ -18,6 +18,7 @@ import { SpacingScaleEditor } from "@/components/spacing-scale-editor";
 import { TypographyScaleEditor } from "@/components/typography-scale-editor";
 import type { CollectionDoc, GeneratorDef } from "@core/types";
 import { useActions, useSystem } from "@/lib/store";
+import type { ExternalSaveProps } from "@/lib/external-save";
 import { cn } from "@/lib/utils";
 
 function defaultGenerator(type: GeneratorDef["type"]): GeneratorDef {
@@ -89,11 +90,12 @@ function defaultGenerator(type: GeneratorDef["type"]): GeneratorDef {
 export function GeneratorEditorView({
   collection,
   onlyGeneratorId,
+  ...externalProps
 }: {
   collection: CollectionDoc;
   /** Dedicated-route mode: pin one generator and hide the switcher. */
   onlyGeneratorId?: string;
-}) {
+} & ExternalSaveProps) {
   const actions = useActions();
   const system = useSystem();
   const generators = collection.generators ?? [];
@@ -184,6 +186,7 @@ export function GeneratorEditorView({
       {selected?.config.type === "color" && (
         <ColorScaleEditor
           key={selected.id}
+          {...externalProps}
           initialConfig={selected.config.colorScaleConfig}
           onSave={(colorScaleConfig) =>
             save(selected, { type: "color", colorScaleConfig })
@@ -193,6 +196,7 @@ export function GeneratorEditorView({
       {selected?.config.type === "spacing" && (
         <SpacingScaleEditor
           key={selected.id}
+          {...externalProps}
           initialConfig={selected.config.spacingConfig}
           viewport={viewport}
           onSave={(spacingConfig) =>
@@ -203,6 +207,7 @@ export function GeneratorEditorView({
       {selected?.config.type === "typography" && (
         <TypographyScaleEditor
           key={selected.id}
+          {...externalProps}
           initialConfig={selected.config.typographyConfig}
           viewport={viewport}
           breakpoints={system?.fluid.breakpoints ?? []}

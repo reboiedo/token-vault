@@ -12,7 +12,7 @@
  * back affordance — same shape as the cloud's dedicated routes.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Route, Switch as RouteSwitch, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft,
@@ -392,6 +392,12 @@ function DedicatedRoute({
   const [, navigate] = useLocation();
   const [active, select] = useActiveCollection();
 
+  // Editors keep their draft state; the sticky header owns Save/Discard.
+  const saveRef = useRef<(() => void | Promise<void>) | null>(null);
+  const discardRef = useRef<(() => void) | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const externalSave = { saveRef, discardRef, onDirtyChange: setDirty };
+
   const collection = surfacesCollection
     ? collections.find((c) => c.name === surfacesCollection) ?? null
     : collections.find((c) =>
@@ -428,14 +434,40 @@ function DedicatedRoute({
             <ArrowLeft className="h-3.5 w-3.5" /> Back
           </Button>
           <span className="truncate text-sm font-semibold">{title}</span>
+          {dirty && (
+            <div className="ml-auto flex items-center gap-1.5">
+              <span className="mr-1 text-xs text-muted-foreground">
+                Unsaved changes
+              </span>
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => void saveRef.current?.()}
+              >
+                Save
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => discardRef.current?.()}
+              >
+                Discard
+              </Button>
+            </div>
+          )}
         </>
       }
     >
       {collection && surfacesCollection && (
-        <SurfacesEditorView collection={collection} />
+        <SurfacesEditorView collection={collection} {...externalSave} />
       )}
       {collection && generator && (
-        <GeneratorEditorView collection={collection} onlyGeneratorId={generator.id} />
+        <GeneratorEditorView
+          collection={collection}
+          onlyGeneratorId={generator.id}
+          {...externalSave}
+        />
       )}
       {!collection && (
         <p className="text-sm text-muted-foreground">

@@ -111,6 +111,7 @@ import { hexToOklch } from "@core/color-utils";
 import { getTailwindHex, TAILWIND_FAMILY_NAMES } from "@core/tailwind-colors";
 import type { CollectionDoc } from "@core/types";
 import { useActions, useSystem } from "@/lib/store";
+import { useExternalSave, type ExternalSaveProps } from "@/lib/external-save";
 import { useResolver } from "@/lib/resolver";
 import { cn } from "@/lib/utils";
 
@@ -1958,7 +1959,10 @@ function SurfacesPreview({ config, modes }: { config: SurfacesConfig; modes: str
 // MAIN VIEW
 // ============================================================================
 
-export function SurfacesEditorView({ collection }: { collection: CollectionDoc }) {
+export function SurfacesEditorView({
+  collection,
+  ...externalProps
+}: { collection: CollectionDoc } & ExternalSaveProps) {
   const actions = useActions();
   const resolver = useResolver();
   const persisted = collection.surfacesConfig as SurfacesConfig | undefined;
@@ -1969,6 +1973,21 @@ export function SurfacesEditorView({ collection }: { collection: CollectionDoc }
   const dirty =
     draft !== null && JSON.stringify(draft) !== JSON.stringify(persistedAtEdit ?? null);
   const config = dirty ? draft : (persisted ?? draft);
+
+  const saveAll = async () => {
+    if (!config) return;
+    await actions.updateSurfacesConfig({
+      collection: collection.name,
+      config,
+    });
+    setDraft(config);
+    setPersistedAtEdit(config);
+  };
+  const discardAll = () => {
+    setDraft(persisted ?? null);
+    setPersistedAtEdit(persisted);
+  };
+  const external = useExternalSave(externalProps, dirty, saveAll, discardAll);
 
   const modes = collection.modes;
   const primary = modes[0];
@@ -2052,30 +2071,16 @@ export function SurfacesEditorView({ collection }: { collection: CollectionDoc }
               {bareCount} bare surfaces — later ones overwrite level tokens
             </span>
           )}
-          {dirty && (
+          {dirty && !external && (
             <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                className="h-7"
-                onClick={async () => {
-                  await actions.updateSurfacesConfig({
-                    collection: collection.name,
-                    config,
-                  });
-                  setDraft(config);
-                  setPersistedAtEdit(config);
-                }}
-              >
+              <Button size="sm" className="h-7" onClick={() => void saveAll()}>
                 Save
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-7"
-                onClick={() => {
-                  setDraft(persisted ?? null);
-                  setPersistedAtEdit(persisted);
-                }}
+                onClick={discardAll}
               >
                 Discard
               </Button>

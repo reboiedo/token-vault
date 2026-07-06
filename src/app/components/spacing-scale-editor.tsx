@@ -43,6 +43,7 @@ import {
   type SpacingScaleConfig,
   type ViewportConfig,
 } from "@core/fluid-utils";
+import { useExternalSave, type ExternalSaveProps } from "@/lib/external-save";
 
 /**
  * Number input that commits on blur/Enter — typing doesn't clobber the
@@ -85,15 +86,22 @@ export function SpacingScaleEditor({
   initialConfig,
   viewport,
   onSave,
+  ...rest
 }: {
   initialConfig: SpacingScaleConfig;
   viewport: ViewportConfig;
   onSave: (config: SpacingScaleConfig) => void | Promise<void>;
-}) {
+} & ExternalSaveProps) {
   const [config, setConfig] = useState(initialConfig);
   const dirty = useMemo(
     () => JSON.stringify(config) !== JSON.stringify(initialConfig),
     [config, initialConfig]
+  );
+  const external = useExternalSave(
+    rest,
+    dirty,
+    () => onSave(config),
+    () => setConfig(initialConfig)
   );
 
   const updateConfig = (updates: Partial<SpacingScaleConfig>) =>
@@ -206,7 +214,7 @@ export function SpacingScaleEditor({
         <span className="text-xs text-muted-foreground">
           Viewport: {viewport.minWidth}px – {viewport.maxWidth}px
         </span>
-        {dirty && (
+        {dirty && !external && (
           <div className="ml-auto flex items-center gap-1.5">
             <Button size="sm" className="h-7" onClick={() => void onSave(config)}>
               Save

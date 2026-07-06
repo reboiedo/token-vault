@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CombinedCurveGraph } from "./combined-curve-graph";
+import { useExternalSave, type ExternalSaveProps } from "@/lib/external-save";
 import {
   CURVE_FAMILIES,
   DEFAULT_CUSTOM_BEZIER,
@@ -401,14 +402,21 @@ function FamilyEditor({
 export function ColorScaleEditor({
   initialConfig,
   onSave,
+  ...rest
 }: {
   initialConfig: ColorScaleConfig;
   onSave: (config: ColorScaleConfig) => void | Promise<void>;
-}) {
+} & ExternalSaveProps) {
   const [config, setConfig] = useState(initialConfig);
   const dirty = useMemo(
     () => JSON.stringify(config) !== JSON.stringify(initialConfig),
     [config, initialConfig]
+  );
+  const external = useExternalSave(
+    rest,
+    dirty,
+    () => onSave(config),
+    () => setConfig(initialConfig)
   );
 
   const patchFamily = (i: number, next: Partial<ColorFamily>) =>
@@ -447,7 +455,7 @@ export function ColorScaleEditor({
           }
           className="h-7 w-96 font-mono text-xs"
         />
-        {dirty && (
+        {dirty && !external && (
           <>
             <Button size="sm" className="h-7" onClick={() => void onSave(config)}>
               Save
