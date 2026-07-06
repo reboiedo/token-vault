@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { Route, Switch as RouteSwitch, useLocation } from "wouter";
+import { Route, Switch as RouteSwitch, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft,
   Code,
@@ -89,12 +89,16 @@ export function App() {
 // ============================================================================
 
 function useActiveCollection(): [CollectionDoc | null, (name: string) => void] {
-  const [location, navigate] = useLocation();
+  const [, navigate] = useLocation();
   const collections = useCollections();
-  const fromQuery = useMemo(() => {
-    const q = new URLSearchParams(window.location.search).get("collection");
-    return q;
-  }, [location]);
+  // useLocation only tracks the pathname, so a search-only navigation
+  // (/?collection=a → /?collection=b) never re-renders. useSearch
+  // subscribes to the query string itself.
+  const search = useSearch();
+  const fromQuery = useMemo(
+    () => new URLSearchParams(search).get("collection"),
+    [search]
+  );
   const active =
     useCollection(fromQuery) ?? (collections.length ? collections[0] : null);
   const select = (name: string) =>
