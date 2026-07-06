@@ -1,7 +1,7 @@
 {
   "name": "token-vault",
   "version": "0.1.0",
-  "description": "Local-first design token studio \u2014 tokens live as files in your repo, the editor runs on localhost, git is your history.",
+  "description": "Local-first design token studio — tokens live as files in your repo, the editor runs on localhost, git is your history.",
   "type": "module",
   "license": "MIT",
   "bin": {
@@ -11,7 +11,8 @@
     "dist",
     "templates",
     "docs",
-    "skills"
+    "skills",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
@@ -23,7 +24,8 @@
     "build": "pnpm build:node && pnpm build:app",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "cli": "node --experimental-strip-types src/cli/index.ts"
+    "cli": "node --experimental-strip-types src/cli/index.ts",
+    "prepublishOnly": "pnpm build && pnpm test && pnpm typecheck"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -65,5 +67,26 @@
     "typescript": "^6.0.3",
     "vite": "^8.1.3",
     "vitest": "^4.1.9"
-  }
+  },
+  "author": "Javier Rebolledo <javier@rebolledo.mx>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reboiedo/token-vault.git"
+  },
+  "homepage": "https://github.com/reboiedo/token-vault#readme",
+  "bugs": {
+    "url": "https://github.com/reboiedo/token-vault/issues"
+  },
+  "keywords": [
+    "design-tokens",
+    "dtcg",
+    "design-system",
+    "figma",
+    "tailwind",
+    "oklch",
+    "local-first",
+    "mcp",
+    "tokens-studio",
+    "style-dictionary"
+  ]
 }

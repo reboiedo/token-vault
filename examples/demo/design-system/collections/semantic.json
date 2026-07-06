@@ -1,27 +1,41 @@
 {
   "name": "semantic",
-  "modes": ["light", "dark"],
+  "modes": [
+    "light",
+    "dark"
+  ],
   "surfacesConfig": {
-    "contrastThreshold": 0.6,
     "surfaces": [
       {
         "id": "s-bg",
         "name": "bg",
-        "materializeBase": true,
-        "bareLevels": true,
         "baseByMode": {
-          "light": { "kind": "raw", "value": "#ffffff" },
-          "dark": { "kind": "raw", "value": "#0a0a0a" }
-        }
+          "light": {
+            "kind": "raw",
+            "value": "#ffffff"
+          },
+          "dark": {
+            "kind": "raw",
+            "value": "#0a0a0a"
+          }
+        },
+        "materializeBase": true,
+        "bareLevels": true
       },
       {
         "id": "s-brand",
         "name": "surface.brand",
-        "materializeBase": true,
         "baseByMode": {
-          "light": { "kind": "alias", "token": "color.blue.600" },
-          "dark": { "kind": "alias", "token": "color.blue.400" }
-        }
+          "light": {
+            "kind": "alias",
+            "token": "color.blue.600"
+          },
+          "dark": {
+            "kind": "alias",
+            "token": "color.blue.400"
+          }
+        },
+        "materializeBase": true
       }
     ],
     "levels": [
@@ -30,8 +44,24 @@
         "name": "fg",
         "rule": {
           "kind": "fg",
-          "onLight": { "target": { "kind": "apca", "lc": 90 }, "anchor": { "kind": "auto" } },
-          "onDark": { "target": { "kind": "apca", "lc": 90 }, "anchor": { "kind": "auto" } }
+          "onLight": {
+            "target": {
+              "kind": "apca",
+              "lc": 90
+            },
+            "anchor": {
+              "kind": "auto"
+            }
+          },
+          "onDark": {
+            "target": {
+              "kind": "apca",
+              "lc": 90
+            },
+            "anchor": {
+              "kind": "auto"
+            }
+          }
         }
       },
       {
@@ -39,37 +69,77 @@
         "name": "fg-muted",
         "rule": {
           "kind": "fg",
-          "onLight": { "target": { "kind": "apca", "lc": 60 }, "anchor": { "kind": "auto" } },
-          "onDark": { "target": { "kind": "apca", "lc": 60 }, "anchor": { "kind": "auto" } }
+          "onLight": {
+            "target": {
+              "kind": "apca",
+              "lc": 60
+            },
+            "anchor": {
+              "kind": "auto"
+            }
+          },
+          "onDark": {
+            "target": {
+              "kind": "apca",
+              "lc": 60
+            },
+            "anchor": {
+              "kind": "auto"
+            }
+          }
         }
       },
       {
         "id": "l-border",
         "name": "border",
-        "display": "separator",
         "rule": {
           "kind": "fg",
-          "onLight": { "target": { "kind": "apca", "lc": 18 }, "anchor": { "kind": "auto" } },
-          "onDark": { "target": { "kind": "apca", "lc": 18 }, "anchor": { "kind": "auto" } }
-        }
+          "onLight": {
+            "target": {
+              "kind": "apca",
+              "lc": 18
+            },
+            "anchor": {
+              "kind": "auto"
+            }
+          },
+          "onDark": {
+            "target": {
+              "kind": "apca",
+              "lc": 18
+            },
+            "anchor": {
+              "kind": "auto"
+            }
+          }
+        },
+        "display": "separator"
       },
       {
         "id": "l-hover",
         "name": "hover",
-        "display": "bg",
         "rule": {
           "kind": "surface-shift",
-          "onLight": { "stepStrength": 0.3 },
-          "onDark": { "stepStrength": 0.3 }
-        }
+          "onLight": {
+            "stepStrength": 0.3
+          },
+          "onDark": {
+            "stepStrength": 0.3
+          }
+        },
+        "display": "bg"
       }
-    ]
+    ],
+    "contrastThreshold": 0.6
   },
   "tokens": [
     {
       "name": "focus-ring",
       "type": "color",
-      "values": { "light": "{color.blue.500}", "dark": "{color.blue.300}" }
+      "values": {
+        "light": "{color.blue.500}",
+        "dark": "{color.blue.300}"
+      }
     }
   ]
 }
