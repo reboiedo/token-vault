@@ -1,19 +1,19 @@
 # Design tokens — instructions for AI agents
 
 This folder is a [token-vault](https://github.com/reboiedo/token-vault)
-design system: tokens live in these JSON files, `npx @rebo89/token-vault dev`
+design system: tokens live in these JSON files, `npx token-vault-studio dev`
 serves a live editor, and git is the history. Full agent reference:
-`node_modules/token-vault/docs/agents.md` (or `docs/agents.md` in the
+`node_modules/token-vault-studio/docs/agents.md` (or `docs/agents.md` in the
 token-vault repo).
 
 ## Editing
 
-Preferred: the MCP server — `npx @rebo89/token-vault mcp -d <this folder>`
+Preferred: the MCP server — `npx token-vault-studio mcp -d <this folder>`
 (Model Context Protocol over stdio: a **local child process**, no
 remote service; 14 tools; `get_context` first). Direct file edits are fine too.
 If a dev server is running, `POST localhost:4477/api/rpc` works as well.
 
-**Always run `npx @rebo89/token-vault check -d <this folder>` after editing** —
+**Always run `npx token-vault-studio check -d <this folder>` after editing** —
 it catches dangling references. Commit before big sessions; git is the
 rollback.
 
@@ -51,4 +51,4 @@ rollback.
    hue** — never one flat neutral shared across tinted surfaces.
 5. After color/surfaces changes run the `analyze_accessibility` tool
    (APCA: |Lc| ≥ 60 body, ≥ 45 large, ≥ 30 minimum).
-6. `dist/` is build output (`npx @rebo89/token-vault build`) — never edit it.
+6. `dist/` is build output (`npx token-vault-studio build`) — never edit it.

@@ -13,8 +13,8 @@ the history**. There are no accounts, no API keys and no rate limits.
 
 | Door | When | How |
 |---|---|---|
-| **MCP tools** (preferred) | Interactive agent sessions | `npx @rebo89/token-vault mcp -d design-system` (stdio). 14 tools, listed below. |
-| **Direct file edits** | Bulk/scripted changes, refactors | Edit `design-system/**/*.json`, then validate with `npx @rebo89/token-vault check`. |
+| **MCP tools** (preferred) | Interactive agent sessions | `npx token-vault-studio mcp -d design-system` (stdio). 14 tools, listed below. |
+| **Direct file edits** | Bulk/scripted changes, refactors | Edit `design-system/**/*.json`, then validate with `npx token-vault-studio check`. |
 | **HTTP RPC** | A dev server is already running | `POST http://localhost:4477/api/rpc` `{"method": "...", "params": {...}}` — same method names as the store mutations. |
 
 **"MCP" here means the Model Context Protocol, not a remote service.**
@@ -24,12 +24,12 @@ files, with no network, accounts or keys involved. Register it in
 Claude Code with:
 
 ```bash
-claude mcp add token-vault -- npx @rebo89/token-vault mcp -d design-system
+claude mcp add token-vault -- npx token-vault-studio mcp -d design-system
 ```
 
 All three doors converge: the dev server's watcher absorbs file edits
 and MCP writes the same way it absorbs human edits, and everything
-recomputes live. **Always finish by running `npx @rebo89/token-vault check`** — it catches
+recomputes live. **Always finish by running `npx token-vault-studio check`** — it catches
 dangling references and schema errors.
 
 ### Safety workflow
@@ -367,11 +367,11 @@ is `{"ok": true, "snapshot": …}` or `{"error": "…"}` (422).
 ## CLI
 
 ```bash
-npx @rebo89/token-vault init  [-d dir] [-n name]   # scaffold
-npx @rebo89/token-vault dev   [-d dir] [-p port]   # editor + RPC + watcher
-npx @rebo89/token-vault check [-d dir]             # validate (run after EVERY edit session)
-npx @rebo89/token-vault build [-d dir] [-o out]    # DTCG → dist/
-npx @rebo89/token-vault mcp   [-d dir]             # stdio MCP server
+npx token-vault-studio init  [-d dir] [-n name]   # scaffold
+npx token-vault-studio dev   [-d dir] [-p port]   # editor + RPC + watcher
+npx token-vault-studio check [-d dir]             # validate (run after EVERY edit session)
+npx token-vault-studio build [-d dir] [-o out]    # DTCG → dist/
+npx token-vault-studio mcp   [-d dir]             # stdio MCP server
 ```
 
 ## Figma sync sidecar (`.figma-ids.json`)

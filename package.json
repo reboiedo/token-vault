@@ -1,5 +1,5 @@
 {
-  "name": "@rebo89/token-vault",
+  "name": "token-vault-studio",
   "version": "0.1.0",
   "description": "Local-first design token studio — tokens live as files in your repo, the editor runs on localhost, git is your history.",
   "type": "module",
@@ -88,8 +88,5 @@
     "mcp",
     "tokens-studio",
     "style-dictionary"
-  ],
-  "publishConfig": {
-    "access": "public"
-  }
+  ]
 }

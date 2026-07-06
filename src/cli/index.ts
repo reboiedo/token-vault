@@ -112,10 +112,10 @@ program
     );
     await fs.writeFile(systemFile, system);
     console.log(`✓ created ${opts.dir}/ ("${name}")`);
-    console.log(`  next: npx @rebo89/token-vault dev -d ${opts.dir}`);
+    console.log(`  next: npx token-vault-studio dev -d ${opts.dir}`);
     console.log(
       `  AI agents: ${opts.dir}/AGENTS.md has the editing rules; ` +
-        `run \`npx @rebo89/token-vault mcp -d ${opts.dir}\` for the MCP server.`
+        `run \`npx token-vault-studio mcp -d ${opts.dir}\` for the MCP server.`
     );
   });
 
