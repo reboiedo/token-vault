@@ -42,6 +42,7 @@ import {
   Unlink,
 } from "lucide-react";
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
+import { fineStepKeyDown } from "@/lib/fine-step";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -304,6 +305,7 @@ function SliderRow({
             step={step}
             value={value}
             onChange={(e) => onChange(parseFloat(e.target.value))}
+            onKeyDown={(e) => fineStepKeyDown(e, { value, step, min, max, onChange })}
             className="w-full"
           />
         )}
@@ -1019,6 +1021,16 @@ function FgBranchEditor({
                 target: { kind: "mix", mix: parseFloat(e.target.value) },
               } as SurfaceLevelBranch)
             }
+            onKeyDown={(e) =>
+              fineStepKeyDown(e, {
+                value: target.mix,
+                step: 0.01,
+                min: 0,
+                max: 1,
+                onChange: (mix) =>
+                  onChange({ ...branch, target: { kind: "mix", mix } } as SurfaceLevelBranch),
+              })
+            }
             className="w-16"
           />
         </label>
@@ -1124,6 +1136,15 @@ function ShiftMixWithRow({
             step={0.01}
             value={mixWith.weight}
             onChange={(e) => onChange({ ...mixWith, weight: parseFloat(e.target.value) })}
+            onKeyDown={(e) =>
+              fineStepKeyDown(e, {
+                value: mixWith.weight,
+                step: 0.01,
+                min: 0,
+                max: 1,
+                onChange: (weight) => onChange({ ...mixWith, weight }),
+              })
+            }
             className="w-14 min-w-0"
           />
           <code className="w-9 text-right tabular-nums">
@@ -1215,6 +1236,15 @@ function MixBranchEditor({
         step={0.01}
         value={branch.mix}
         onChange={(e) => onChange({ ...branch, mix: parseFloat(e.target.value) })}
+        onKeyDown={(e) =>
+          fineStepKeyDown(e, {
+            value: branch.mix,
+            step: 0.01,
+            min: 0,
+            max: 1,
+            onChange: (mix) => onChange({ ...branch, mix }),
+          })
+        }
         className="w-20 min-w-0"
       />
       <code className="w-9 shrink-0 text-right text-[10px] tabular-nums">

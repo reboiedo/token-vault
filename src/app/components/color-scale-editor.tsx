@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CombinedCurveGraph } from "./combined-curve-graph";
+import { fineStepKeyDown } from "@/lib/fine-step";
 import { useExternalSave, type ExternalSaveProps } from "@/lib/external-save";
 import {
   CURVE_FAMILIES,
@@ -161,9 +162,19 @@ function ChannelControlPanel({
               type="number"
               min={meta.min}
               max={meta.max}
-              step={meta.step}
+              step="any"
               value={channel[field]}
               onChange={(e) => onChange(field, parseFloat(e.target.value) || 0)}
+              onKeyDown={(e) =>
+                fineStepKeyDown(e, {
+                  value: channel[field],
+                  step: meta.step,
+                  min: meta.min,
+                  max: meta.max,
+                  onChange: (next) => onChange(field, next),
+                })
+              }
+              title="↑/↓ to nudge · Shift for fine steps · type any value"
               className="h-7 font-mono text-xs"
               disabled={isDisabled}
             />
