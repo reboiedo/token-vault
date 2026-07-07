@@ -135,12 +135,32 @@ Files store **editable intent**, not baked output. Six encodings:
 Points at any token by name, including generated ones
 (`color.blue.600` from a color generator, `space.m` from spacing).
 
-### 3. Tailwind — `{"$tw": "family-step"}`
+### 3. Tailwind — `{"$tw": "…"}`
 ```json
-"values": { "default": { "$tw": "slate-500" } }
+"values": { "default": { "$tw": "slate-500" } }   // color → hex
+"values": { "default": { "$tw": "font-bold" } }   // utility → 700
 ```
-References the built-in Tailwind CSS palette. Honors
-`system.useTailwindColors`.
+References the built-in Tailwind CSS v4 default theme. The ref is the
+Tailwind utility class name. Besides `family-step` **colors**, it also
+resolves the non-color scales, so you can lean on Tailwind's utilities
+instead of re-deriving them:
+
+| ref | resolves to | type |
+|---|---|---|
+| `font-{thin…black}` | `100`…`900` | fontWeight |
+| `leading-{none…loose}` | `1`…`2` | line-height |
+| `tracking-{tighter…widest}` | `-0.05em`…`0.1em` | letter-spacing |
+| `text-{xs…9xl}` | `0.75rem`…`8rem` | font-size |
+| `spacing-<n>` (`spacing-4`) | `n × 0.25rem` | spacing |
+| `rounded-{none…4xl,full}` | radius | border-radius |
+| `blur-*`, `breakpoint-*`, `container-*`, `shadow-*` | scale value | — |
+
+Honors `system.useTailwindColors` (the master switch for all Tailwind
+refs). Usable inside composite slots too — e.g. a `typography` token's
+`fontWeight` / `lineHeight` / `letterSpacing` / `fontSize` slot:
+`{"$composite": {"fontWeight": {"$tw": "font-semibold"}, "lineHeight": {"$tw": "leading-snug"}}}`.
+On DTCG export the value is baked and the original ref + `var(--…)` form
+is kept under `$extensions`.
 
 ### 4. Derived — `{"$derive": {base, ops}}` (colors)
 ```json

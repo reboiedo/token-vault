@@ -45,6 +45,17 @@ import {
 } from "@/components/ui/select";
 import { ColorPickerPopover } from "./color-picker-popover";
 import { Switch } from "@/components/ui/switch";
+import { getTailwindHex } from "@core/tailwind-colors";
+import {
+  getTailwindUtility,
+  tailwindScalesByNamespace,
+  TAILWIND_SLOT_NAMESPACES,
+} from "@core/tailwind-theme";
+import {
+  TailwindUtilityPopover,
+  TailwindUtilityTrigger,
+} from "./tailwind-utility-picker";
+import { cn } from "@/lib/utils";
 import type {
   CollectionDoc,
   CompositeLayer,
@@ -52,7 +63,7 @@ import type {
   TokenDoc,
   TokenValue,
 } from "@core/types";
-import { useActions, useCollections } from "@/lib/store";
+import { useActions, useCollections, useSystem } from "@/lib/store";
 import { useResolver } from "@/lib/resolver";
 
 const FONT_WEIGHTS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
@@ -210,7 +221,9 @@ function layerPreviewCss(
       ? fallback
       : slot.type === "alias"
         ? (resolve(slot.token) ?? fallback)
-        : String(slot.value);
+        : slot.type === "tailwind"
+          ? (getTailwindHex(slot.color) ?? getTailwindUtility(slot.color)?.value ?? fallback)
+          : String(slot.value);
   if (type === "shadow") {
     return {
       boxShadow: layers
@@ -305,10 +318,17 @@ function LayersEditor({
             return (
               <div key={slot} className="flex items-center gap-2">
                 <span className="w-20 shrink-0 text-[11px] text-muted-foreground">{slot}</span>
-                {v?.type === "alias" ? (
+                {v?.type === "alias" || v?.type === "tailwind" ? (
                   <>
-                    <span className="flex-1 truncate rounded bg-purple-100 px-1.5 py-1 font-mono text-xs text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                      {v.token}
+                    <span
+                      className={cn(
+                        "flex-1 truncate rounded px-1.5 py-1 font-mono text-xs",
+                        v.type === "alias"
+                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                          : "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300"
+                      )}
+                    >
+                      {v.type === "alias" ? v.token : `tw:${v.color}`}
                     </span>
                     <Button
                       variant="ghost"
@@ -318,7 +338,10 @@ function LayersEditor({
                       onClick={() =>
                         patchLayer(i, slot, {
                           type: "raw",
-                          value: resolver.resolveRaw(v.token, mode) ?? "",
+                          value:
+                            v.type === "alias"
+                              ? (resolver.resolveRaw(v.token, mode) ?? "")
+                              : (getTailwindHex(v.color) ?? getTailwindUtility(v.color)?.value ?? ""),
                         })
                       }
                     >
@@ -415,17 +438,26 @@ function TypographySlots({
   onLayer: (next: CompositeLayer) => void;
 }) {
   const SLOTS = ["fontFamily", "fontSize", "fontWeight", "letterSpacing", "lineHeight"];
+  const system = useSystem();
   return (
     <div className="space-y-1.5 rounded-md border p-2">
       {SLOTS.map((slot) => {
         const v = layer[slot];
+        const twScales = tailwindScalesByNamespace(TAILWIND_SLOT_NAMESPACES[slot] ?? []);
         return (
           <div key={slot} className="flex items-center gap-2">
             <span className="w-28 shrink-0 text-[11px] text-muted-foreground">{slot}</span>
-            {v?.type === "alias" ? (
+            {v?.type === "alias" || v?.type === "tailwind" ? (
               <>
-                <span className="flex-1 truncate rounded bg-purple-100 px-1.5 py-1 font-mono text-xs text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                  {v.token}
+                <span
+                  className={cn(
+                    "flex-1 truncate rounded px-1.5 py-1 font-mono text-xs",
+                    v.type === "alias"
+                      ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                      : "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300"
+                  )}
+                >
+                  {v.type === "alias" ? v.token : `tw:${v.color}`}
                 </span>
                 <Button
                   variant="ghost"
@@ -448,6 +480,16 @@ function TypographySlots({
                   }
                   className="h-7 flex-1 font-mono text-xs"
                 />
+                {system?.useTailwindColors && twScales.length > 0 && (
+                  <TailwindUtilityPopover
+                    scales={twScales}
+                    onSelect={(ref) =>
+                      onLayer({ ...layer, [slot]: { type: "tailwind", color: ref } })
+                    }
+                  >
+                    <TailwindUtilityTrigger />
+                  </TailwindUtilityPopover>
+                )}
                 <AliasPicker
                   mode={mode}
                   selfName={token.name}

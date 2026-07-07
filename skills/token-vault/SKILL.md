@@ -55,7 +55,10 @@ design-system also carries an `AGENTS.md`.
 
 - raw scalar: `"#3b82f6"`, `"72rem"`, `400`, `true`
 - alias: `"{color.blue.600}"` (dotted token NAME — names are identity)
-- Tailwind palette: `{"$tw": "slate-500"}`
+- Tailwind ref: `{"$tw": "slate-500"}` (color) — also non-color v4
+  utilities: `font-bold`→700, `leading-tight`→1.25, `tracking-wide`,
+  `text-lg`, `spacing-4`, `rounded-lg`, `blur-sm`, … (works in composite
+  slots too). Honors `system.useTailwindColors`.
 - derived color: `{"$derive": {"base": {"kind": "token", "token": "brand.accent"}, "ops": [{"op": "shift", "stepStrength": 0.4}]}}`
   — ops: `lighten`/`darken` (amount), `mute` (amount), `mix` (with,
   weight), `autoContrast` (threshold), `shift` (stepStrength ±1,

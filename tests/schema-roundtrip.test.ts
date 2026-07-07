@@ -47,6 +47,14 @@ describe("value codec", () => {
     },
     {
       type: "composite",
+      layers: {
+        fontWeight: { type: "tailwind", color: "font-semibold" },
+        lineHeight: { type: "tailwind", color: "leading-snug" },
+        fontSize: { type: "raw", value: "1rem" },
+      },
+    },
+    {
+      type: "composite",
       layers: [
         { color: { type: "raw", value: "#000000" } },
         { color: { type: "alias", token: "color.blue.950" } },

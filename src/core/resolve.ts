@@ -10,6 +10,7 @@
 import type { CollectionDoc, TokenDoc, TokenValue } from "./types";
 import { resolveDerivationToHex } from "./derivation";
 import { getTailwindHex } from "./tailwind-colors";
+import { getTailwindUtility } from "./tailwind-theme";
 import type { AliasResolvable } from "./surfaces-utils";
 
 export interface Resolver {
@@ -45,7 +46,10 @@ export function buildResolver(collections: CollectionDoc[]): Resolver {
       case "alias":
         return resolve(value.token, mode, visiting);
       case "tailwind":
-        return getTailwindHex(value.color);
+        // Colors resolve to hex; every other Tailwind default-theme
+        // utility (font-weight, leading, tracking, text, spacing, …)
+        // resolves to its raw CSS value.
+        return getTailwindHex(value.color) ?? getTailwindUtility(value.color)?.value ?? null;
       case "derived":
         try {
           return resolveDerivationToHex(value.base, value.ops, (r) =>

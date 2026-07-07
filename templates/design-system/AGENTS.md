@@ -28,7 +28,9 @@ rollback.
 - Per-mode values, six encodings:
   - raw scalar: `"#3b82f6"`, `"72rem"`, `400`
   - alias: `"{color.blue.600}"`
-  - Tailwind: `{"$tw": "slate-500"}`
+  - Tailwind: `{"$tw": "slate-500"}` (color) or a v4 utility
+    (`{"$tw": "font-bold"}`→700, `leading-tight`, `tracking-wide`,
+    `text-lg`, `spacing-4`, `rounded-lg`, …)
   - derived color: `{"$derive": {"base": {...}, "ops": [...]}}`
   - expression: `{"$expr": "container * 0.75"}`
   - composite: `{"$composite": {...}}` or `[{...}, ...]` for

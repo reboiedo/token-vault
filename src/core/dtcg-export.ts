@@ -21,6 +21,7 @@
 
 import { hexToOklch } from "./color-utils";
 import { getTailwindColor } from "./tailwind-colors";
+import { getTailwindUtility } from "./tailwind-theme";
 import { resolveDerivationToHex, emitCssRelativeColor } from "./derivation";
 import {
   parseExpression,
@@ -574,6 +575,19 @@ function resolveTokenValue(
         },
       };
     }
+    // Non-color default-theme utilities (font-weight, leading, tracking,
+    // text, spacing, …) resolve to their raw CSS value; the Tailwind v4
+    // variable form is preserved in $extensions.
+    const util = getTailwindUtility(tokenValue.color);
+    if (util) {
+      return {
+        value: util.value,
+        extensions: {
+          tailwindUtility: tokenValue.color,
+          css: { value: util.cssVar },
+        },
+      };
+    }
     return wrap(`{unresolved-tailwind:${tokenValue.color}}`);
   }
   if (tokenValue.type === "composite") {
@@ -588,6 +602,12 @@ function resolveTokenValue(
       for (const [slot, sub] of Object.entries(layer)) {
         if (sub.type === "alias") {
           composite[slot] = aliasPath(sub.token);
+        } else if (sub.type === "tailwind") {
+          // Resolve a Tailwind ref slot (e.g. fontWeight → 700,
+          // lineHeight → 1.25) to its default-theme value.
+          const twColor = getTailwindColor(sub.color);
+          composite[slot] =
+            twColor?.hex ?? getTailwindUtility(sub.color)?.value ?? `{unresolved-tailwind:${sub.color}}`;
         } else if (slot === "timingFunction") {
           // DTCG transition: timingFunction is a cubicBezier value — the
           // 4-number array form, not the stored string.

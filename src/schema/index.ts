@@ -12,7 +12,9 @@
  *
  *   "…" / 1.5 / true                → raw
  *   "{color.blue.600}"              → alias (by dotted name)
- *   { "$tw": "slate-500" }          → tailwind palette ref
+ *   { "$tw": "slate-500" }          → tailwind color ref
+ *   { "$tw": "font-bold" }          → tailwind utility ref (weight, leading,
+ *                                     tracking, text, spacing, radius, …)
  *   { "$derive": { base, ops } }    → OKLCH derivation pipeline
  *   { "$expr": "container * 0.5" }  → dimension expression
  *   { "$composite": {…} | [{…}] }   → DTCG composite (slots raw/alias)
@@ -73,8 +75,14 @@ const derivationOpSchema: z.ZodType<DerivationOp> = z.union([
     .strict(),
 ]);
 
-/** One composite slot in file form: plain raw or "{alias}". */
-const fileCompositeSlotSchema = z.union([z.string(), z.number(), z.boolean()]);
+/** One composite slot in file form: plain raw, "{alias}", or {"$tw":"…"}. */
+const fileCompositeSlotSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.object({ $tw: z.string() }).strict(),
+]);
+type FileCompositeSlotValue = z.infer<typeof fileCompositeSlotSchema>;
 const fileCompositeLayerSchema = z.record(z.string(), fileCompositeSlotSchema);
 
 /** A token value in file form. */
@@ -105,7 +113,10 @@ export const fileValueSchema = z.union([
 ]);
 export type FileValue = z.infer<typeof fileValueSchema>;
 
-function decodeCompositeSlot(v: string | number | boolean): CompositeSlot {
+function decodeCompositeSlot(
+  v: string | number | boolean | { $tw: string }
+): CompositeSlot {
+  if (typeof v === "object") return { type: "tailwind", color: v.$tw };
   if (typeof v === "string") {
     const m = ALIAS_RE.exec(v);
     if (m) return { type: "alias", token: m[1] };
@@ -113,8 +124,11 @@ function decodeCompositeSlot(v: string | number | boolean): CompositeSlot {
   return { type: "raw", value: v };
 }
 
-function encodeCompositeSlot(slot: CompositeSlot): string | number | boolean {
+function encodeCompositeSlot(
+  slot: CompositeSlot
+): string | number | boolean | { $tw: string } {
   if (slot.type === "alias") return `{${slot.token}}`;
+  if (slot.type === "tailwind") return { $tw: slot.color };
   return slot.value;
 }
 
@@ -132,7 +146,7 @@ export function decodeValue(v: FileValue): TokenValue {
     return { type: "derived", base: v.$derive.base, ops: v.$derive.ops };
   if ("$expr" in v) return { type: "expression", formula: v.$expr };
   const layers = v.$composite;
-  const decodeLayer = (l: Record<string, string | number | boolean>) => {
+  const decodeLayer = (l: Record<string, FileCompositeSlotValue>) => {
     const out: CompositeLayer = {};
     for (const [slot, sv] of Object.entries(l)) out[slot] = decodeCompositeSlot(sv);
     return out;
@@ -157,7 +171,7 @@ export function encodeValue(value: TokenValue): FileValue {
       return { $expr: value.formula };
     case "composite": {
       const encodeLayer = (l: CompositeLayer) => {
-        const out: Record<string, string | number | boolean> = {};
+        const out: Record<string, FileCompositeSlotValue> = {};
         for (const [slot, sv] of Object.entries(l)) out[slot] = encodeCompositeSlot(sv);
         return out;
       };

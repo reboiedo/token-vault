@@ -32,9 +32,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { ColorPickerPopover } from "./color-picker-popover";
 import { TailwindColorCommandGroup } from "./tailwind-color-picker";
+import { TailwindUtilityCommandGroup } from "./tailwind-utility-picker";
 import { DerivationEditor } from "./derivation-editor";
 import { ExpressionEditor, rawToPx } from "./expression-editor";
 import { getTailwindHex } from "@core/tailwind-colors";
+import {
+  getTailwindUtility,
+  tailwindScalesByNamespace,
+  tailwindScalesForTypes,
+  TAILWIND_SLOT_NAMESPACES,
+} from "@core/tailwind-theme";
 import { hexToOklch } from "@core/color-utils";
 import { resolveExpressionToNumber } from "@core/expression";
 import type { CompositeLayer, TokenDoc, TokenType, TokenValue } from "@core/types";
@@ -105,15 +112,19 @@ function CompositeSlotPill({
   onSlotChange: (slot: string, next: CompositeLayer[string]) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const system = useSystem();
   const groups = useGroupedAliasOptions(mode, selfName);
   const value = layer[slot];
   const allowed = SLOT_ALLOWED_TYPES[slot];
+  const twScales = tailwindScalesByNamespace(TAILWIND_SLOT_NAMESPACES[slot] ?? []);
   const label =
     value === undefined
       ? "—"
       : value.type === "alias"
         ? value.token
-        : String(value.value);
+        : value.type === "tailwind"
+          ? `tw:${value.color}`
+          : String(value.value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -122,7 +133,9 @@ function CompositeSlotPill({
           "max-w-28 truncate rounded px-1 py-0.5 font-mono text-[10px] transition hover:bg-accent",
           value?.type === "alias"
             ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-            : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+            : value?.type === "tailwind"
+              ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300"
+              : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
         )}
         title={`${slot}: ${label}`}
       >
@@ -133,6 +146,15 @@ function CompositeSlotPill({
           <CommandInput placeholder={`Link ${slot} to a token…`} />
           <CommandList>
             <CommandEmpty>No compatible tokens.</CommandEmpty>
+            {system?.useTailwindColors && twScales.length > 0 && (
+              <TailwindUtilityCommandGroup
+                scales={twScales}
+                onSelect={(ref) => {
+                  onSlotChange(slot, { type: "tailwind", color: ref });
+                  setOpen(false);
+                }}
+              />
+            )}
             {groups.map((g) => {
               const compatible = g.options
                 .filter((o) => !allowed || !o.type || allowed.includes(o.type))
@@ -247,7 +269,9 @@ export function ValueCell({
           ? fb
           : v.type === "alias"
             ? (resolve(v.token) ?? fb)
-            : String(v.value);
+            : v.type === "tailwind"
+              ? (getTailwindHex(v.color) ?? getTailwindUtility(v.color)?.value ?? fb)
+              : String(v.value);
       };
       const css: React.CSSProperties =
         token.type === "gradient"
@@ -495,6 +519,15 @@ export function ValueCell({
                   ))}
                   {system?.useTailwindColors && isColor && (
                     <TailwindColorCommandGroup
+                      onSelect={(color) => {
+                        void write({ type: "tailwind", color });
+                        setMenuOpen(false);
+                      }}
+                    />
+                  )}
+                  {system?.useTailwindColors && !isColor && token.type && (
+                    <TailwindUtilityCommandGroup
+                      scales={tailwindScalesForTypes([token.type])}
                       onSelect={(color) => {
                         void write({ type: "tailwind", color });
                         setMenuOpen(false);

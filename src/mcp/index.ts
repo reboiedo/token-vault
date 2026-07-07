@@ -81,6 +81,12 @@ export async function startMcpServer(dir: string): Promise<void> {
       'plain scalar = raw, "{token.name}" = alias, {"$tw":"slate-500"},',
       '{"$derive":{base,ops}}, {"$expr":"a * 2"}, {"$composite":{...}} or',
       '{"$composite":[{...}]} for shadow/gradient layers - copy what you read.',
+      '{"$tw":"…"} also references Tailwind v4 default-theme utilities, not',
+      "just colors: font-{thin..black}=weight, leading-*=line-height,",
+      "tracking-*=letter-spacing, text-*=font-size, spacing-<n>, rounded-*,",
+      'blur-*, breakpoint-*, container-*, shadow-*. e.g. {"$tw":"font-bold"}',
+      "= 700. Works in composite slots too (typography fontWeight/lineHeight/",
+      "letterSpacing/fontSize).",
   ].join("\n");
 
   const server = new McpServer(

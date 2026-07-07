@@ -20,6 +20,8 @@
 import type { Hono } from "hono";
 import { buildResolver } from "../core/resolve";
 import { resolveExpressionToNumber } from "../core/expression";
+import { getTailwindHex } from "../core/tailwind-colors";
+import { getTailwindUtility } from "../core/tailwind-theme";
 import type {
   CollectionDoc,
   SystemDoc,
@@ -147,17 +149,24 @@ export function buildFigmaTokensPayload(
         if (!isPluginComposite(token, value)) return null;
         const layer = value.layers as Record<
           string,
-          { type: "raw"; value: string | number | boolean } | { type: "alias"; token: string }
+          | { type: "raw"; value: string | number | boolean }
+          | { type: "alias"; token: string }
+          | { type: "tailwind"; color: string }
         >;
         const slots: Record<
           string,
           { type: "raw"; value: string | number | boolean } | { type: "alias"; tokenId: string }
         > = {};
         for (const [slot, sv] of Object.entries(layer)) {
-          slots[slot] =
-            sv.type === "alias"
-              ? { type: "alias", tokenId: sv.token }
-              : { type: "raw", value: sv.value };
+          if (sv.type === "alias") {
+            slots[slot] = { type: "alias", tokenId: sv.token };
+          } else if (sv.type === "tailwind") {
+            // Figma variables can't hold a Tailwind ref — pre-bake to raw.
+            const resolved = getTailwindHex(sv.color) ?? getTailwindUtility(sv.color)?.value ?? "";
+            slots[slot] = { type: "raw", value: resolved };
+          } else {
+            slots[slot] = { type: "raw", value: sv.value };
+          }
         }
         return { type: "composite", value: slots };
       }

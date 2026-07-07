@@ -38,7 +38,13 @@ export type AliasValue = {
   token: TokenRef;
 };
 
-/** A Tailwind v4 palette color, e.g. "slate-500". */
+/**
+ * A Tailwind v4 default-theme reference. The `color` field holds the
+ * Tailwind utility name — either a palette color ("slate-500") or a
+ * non-color scale utility ("font-bold", "leading-tight", "text-lg",
+ * "spacing-4"). The field keeps the name `color` for back-compat with
+ * derivations and the DTCG export; resolution disambiguates by ref shape.
+ */
 export type TailwindValue = {
   type: "tailwind";
   color: string;
@@ -64,7 +70,7 @@ export type ExpressionValue = {
  * Composite (DTCG) value: named slots, each raw or alias. Layered
  * composites (multi-layer shadows, gradient stops) use the array form.
  */
-export type CompositeSlot = RawValue | AliasValue;
+export type CompositeSlot = RawValue | AliasValue | TailwindValue;
 export type CompositeLayer = Record<string, CompositeSlot>;
 export type CompositeValue = {
   type: "composite";
