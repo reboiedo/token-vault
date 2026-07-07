@@ -491,6 +491,7 @@ export const systemFileSchema = z.object({
   }),
   useTailwindColors: z.boolean().optional(),
   tailwindFigmaBridge: z.enum(["off", "used", "full"]).optional(),
+  surfaceRecipes: z.enum(["off", "css", "dtcg", "both"]).optional(),
   exportLayout: z.enum(["single", "per-collection"]).optional(),
   collections: z.array(z.string().min(1)),
 });

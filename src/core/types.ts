@@ -190,6 +190,16 @@ export interface SystemDoc {
    *   · "full" — emit the entire Tailwind default theme
    */
   tailwindFigmaBridge?: "off" | "used" | "full";
+  /**
+   * Export the surfaces helper's rules as seed-driven relative-color
+   * recipes (CSS `color-mix()` / `oklch(from …)`) instead of only baked
+   * per-surface hex. Consumers set `--surface`/`--ink` per scope.
+   *   · "off"  (default) — only baked per-surface tokens
+   *   · "css"  — also emit dist/surfaces.css
+   *   · "dtcg" — also emit a `surface-recipe` token group
+   *   · "both" — emit both artifacts
+   */
+  surfaceRecipes?: "off" | "css" | "dtcg" | "both";
   exportLayout?: "single" | "per-collection";
   /** Collection names in display order (= files under collections/). */
   collections: CollectionRef[];

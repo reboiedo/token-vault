@@ -22,6 +22,7 @@
 import { hexToOklch } from "./color-utils";
 import { getTailwindColor } from "./tailwind-colors";
 import { getTailwindUtility } from "./tailwind-theme";
+import { buildSurfaceRecipes, recipesToDtcgGroup } from "./surface-recipe";
 import { resolveDerivationToHex, emitCssRelativeColor } from "./derivation";
 import {
   parseExpression,
@@ -1139,6 +1140,18 @@ export function generateDtcgExport(
   };
   if (layout === "per-collection") {
     result.tokenFiles = generateTokensJsonByCollection(collections, mode);
+  }
+  // Surface recipes as a first-class `surface-recipe` token group (the
+  // seed-driven relative-color rules). Opt-in via `surfaceRecipes`.
+  if (system.surfaceRecipes === "dtcg" || system.surfaceRecipes === "both") {
+    const recipes = buildSurfaceRecipes(collections);
+    if (recipes.length > 0) {
+      const group = recipesToDtcgGroup(recipes);
+      result.tokens["surface-recipe"] = group;
+      if (result.tokenFiles) {
+        result.tokenFiles["surface-recipe"] = { "surface-recipe": group };
+      }
+    }
   }
   return result;
 }

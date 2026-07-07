@@ -13,6 +13,7 @@ import {
   serializeMetadata,
   serializeTokens,
 } from "../core/dtcg-export";
+import { buildSurfaceRecipes, recipesToCss } from "../core/surface-recipe";
 
 export async function writeDtcgBuild(
   snapshot: SystemSnapshot,
@@ -48,5 +49,11 @@ export async function writeDtcgBuild(
     await write("tokens.json", serializeTokens(result.tokens));
   }
   await write("$metadata.json", serializeMetadata(result.metadata));
+
+  // Seed-driven surface recipes as a ready-to-use CSS layer (opt-in).
+  if (system.surfaceRecipes === "css" || system.surfaceRecipes === "both") {
+    const css = recipesToCss(buildSurfaceRecipes(collections));
+    if (css) await write("surfaces.css", css);
+  }
   return written;
 }

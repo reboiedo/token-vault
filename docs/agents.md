@@ -62,10 +62,29 @@ design-system/
   },
   "useTailwindColors": true,
   "tailwindFigmaBridge": "used",        // "off" | "used" | "full"
+  "surfaceRecipes": "both",             // "off" | "css" | "dtcg" | "both"
   "exportLayout": "single",            // or "per-collection"
   "collections": ["core", "semantic"]  // filenames under collections/
 }
 ```
+
+`surfaceRecipes` exports the surfaces helper's rules as **seed-driven
+relative colors** (in addition to the baked per-surface tokens, which
+always ship):
+- `"off"` (default) — only the baked per-surface hex tokens.
+- `"css"` — also write `dist/surfaces.css`: a `:root { --<level>: … }`
+  layer of `color-mix(in oklch, var(--surface) …)` / `oklch(from
+  var(--surface) …)` / `rgb(from … / α)` expressions. Set `--surface`
+  (the seed) and `--ink` (the contrasting ink) per scope and every level
+  recolors automatically.
+- `"dtcg"` — also emit a `surface-recipe` token group whose `$value` is
+  the relative expression.
+- `"both"` — both artifacts.
+
+Notes: split-polarity levels emit `<level>-on-light` / `-on-dark` (CSS)
+or `<level>.on-light` / `.on-dark` (DTCG). APCA (contrast-target) levels
+have no closed CSS form — they ship an *approximate* `color-mix` flagged
+`approx`; the baked per-surface tokens remain the contrast-exact source.
 
 `tailwindFigmaBridge` controls how `{"$tw": …}` refs cross into Figma on
 sync (mixed design systems that lean on Tailwind's theme):

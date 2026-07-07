@@ -188,6 +188,55 @@ function GeneralSection({
           </Select>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Surface recipes</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            Export the surfaces rules as seed-driven relative colors
+            (<code>color-mix()</code> / <code>oklch(from …)</code>). Consumers
+            set <code>--surface</code> / <code>--ink</code> per scope and every
+            level recolors. Baked per-surface tokens are still emitted.
+          </p>
+          <Select
+            value={system.surfaceRecipes ?? "off"}
+            onValueChange={(v) =>
+              v &&
+              void onSave({
+                surfaceRecipes: v as SystemDoc["surfaceRecipes"],
+              })
+            }
+          >
+            <SelectTrigger className="h-8 w-52 text-xs">
+              <SelectValue>
+                {system.surfaceRecipes === "css"
+                  ? "CSS layer"
+                  : system.surfaceRecipes === "dtcg"
+                    ? "DTCG tokens"
+                    : system.surfaceRecipes === "both"
+                      ? "CSS + DTCG"
+                      : "Off (baked only)"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="off" className="text-xs">
+                Off (baked only)
+              </SelectItem>
+              <SelectItem value="css" className="text-xs">
+                CSS layer (surfaces.css)
+              </SelectItem>
+              <SelectItem value="dtcg" className="text-xs">
+                DTCG tokens (surface-recipe)
+              </SelectItem>
+              <SelectItem value="both" className="text-xs">
+                CSS + DTCG
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
     </div>
   );
 }
