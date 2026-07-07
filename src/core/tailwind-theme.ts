@@ -23,6 +23,8 @@ import type { TokenType } from "./types";
 export interface TailwindThemeEntry {
   /** Utility class name, e.g. "font-bold" — this is the `$tw` ref. */
   ref: string;
+  /** The scale-relative key, e.g. "bold", "tight", "lg", "4". */
+  suffix: string;
   /** Resolved CSS value, e.g. "700", "1.25", "0.025em", "1.125rem". */
   value: string;
   /** Tailwind v4 theme variable form, kept for DTCG export tooling. */
@@ -36,6 +38,8 @@ export interface TailwindThemeScale {
   label: string;
   /** The token-vault token type this scale maps onto. */
   type: TokenType;
+  /** Tailwind's CSS-var namespace, used as the Figma variable group. */
+  figmaGroup: string;
   entries: TailwindThemeEntry[];
 }
 
@@ -52,8 +56,10 @@ function scale(
     namespace,
     label,
     type,
+    figmaGroup: varPrefix,
     entries: Object.entries(values).map(([suffix, value]) => ({
       ref: `${classPrefix}-${suffix}`,
+      suffix,
       value,
       cssVar: `var(--${varPrefix}-${suffix})`,
     })),
@@ -196,13 +202,14 @@ const spacing: TailwindThemeScale = {
   namespace: "spacing",
   label: "Spacing",
   type: "dimension",
+  figmaGroup: "spacing",
   entries: [
-    { ref: "spacing-px", value: "1px", cssVar: "1px" },
+    { ref: "spacing-px", suffix: "px", value: "1px", cssVar: "1px" },
     ...SPACING_STEPS.map((step) => ({
       ref: `spacing-${step}`,
+      suffix: String(step),
       value: step === 0 ? "0px" : `${step * 0.25}rem`,
-      cssVar:
-        step === 0 ? "0px" : `calc(var(--spacing) * ${step})`,
+      cssVar: step === 0 ? "0px" : `calc(var(--spacing) * ${step})`,
     })),
   ],
 };
@@ -250,6 +257,22 @@ export function getTailwindUtility(
 /** True when `ref` names a Tailwind default-theme utility (not a color). */
 export function isTailwindUtility(ref: string): boolean {
   return BY_REF.has(ref);
+}
+
+// Flat lookup: ref → { scale, entry } (keeps suffix/group for the Figma bridge).
+const ENTRY_BY_REF = new Map<
+  string,
+  { scale: TailwindThemeScale; entry: TailwindThemeEntry }
+>();
+for (const s of TAILWIND_THEME) {
+  for (const e of s.entries) ENTRY_BY_REF.set(e.ref, { scale: s, entry: e });
+}
+
+/** Locate the scale + entry for a utility ref, or null. */
+export function findTailwindEntry(
+  ref: string
+): { scale: TailwindThemeScale; entry: TailwindThemeEntry } | null {
+  return ENTRY_BY_REF.get(ref) ?? null;
 }
 
 /** Scales whose token type is compatible with any of `types` (picker filter). */

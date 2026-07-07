@@ -22,6 +22,12 @@ import { buildResolver } from "../core/resolve";
 import { resolveExpressionToNumber } from "../core/expression";
 import { getTailwindHex } from "../core/tailwind-colors";
 import { getTailwindUtility } from "../core/tailwind-theme";
+import {
+  allBridgeVars,
+  bridgeVarForRef,
+  TAILWIND_BRIDGE_COLLECTION,
+  type BridgeVar,
+} from "../core/tailwind-figma-bridge";
 import type {
   CollectionDoc,
   SystemDoc,
@@ -91,6 +97,18 @@ export function buildFigmaTokensPayload(
 ) {
   const resolver = buildResolver(collections);
 
+  // Tailwind → Figma bridge. When enabled, `$tw` refs are alias-linked to
+  // a synthetic read-only "Tailwind" collection instead of baked to raw.
+  // `usedBridge` accumulates the referenced vars for the tree-shaken set.
+  const bridgeMode = system.tailwindFigmaBridge ?? "off";
+  const usedBridge = new Map<string, BridgeVar>();
+  const bridgeRef = (ref: string): BridgeVar | null => {
+    if (bridgeMode === "off") return null;
+    const bv = bridgeVarForRef(ref);
+    if (bv) usedBridge.set(bv.id, bv);
+    return bv;
+  };
+
   // Recursive px resolver for expression baking: expressions may chain
   // through aliases and other expression tokens (cycle-guarded).
   const tokensByName = new Map<string, { token: TokenDoc; modes: string[] }>();
@@ -134,7 +152,13 @@ export function buildFigmaTokensPayload(
         return { type: "raw", value: value.value };
       case "alias":
         return { type: "alias", tokenId: value.token };
-      case "tailwind":
+      case "tailwind": {
+        // Bridge on → alias to the synthetic Tailwind variable; else bake.
+        const bv = bridgeRef(value.color);
+        if (bv) return { type: "alias", tokenId: bv.id };
+        const resolved = resolver.resolveRaw(token.name, mode);
+        return resolved === null ? null : { type: "raw", value: resolved };
+      }
       case "derived": {
         const resolved = resolver.resolveRaw(token.name, mode);
         return resolved === null ? null : { type: "raw", value: resolved };
@@ -161,9 +185,15 @@ export function buildFigmaTokensPayload(
           if (sv.type === "alias") {
             slots[slot] = { type: "alias", tokenId: sv.token };
           } else if (sv.type === "tailwind") {
-            // Figma variables can't hold a Tailwind ref — pre-bake to raw.
-            const resolved = getTailwindHex(sv.color) ?? getTailwindUtility(sv.color)?.value ?? "";
-            slots[slot] = { type: "raw", value: resolved };
+            // Bridge on → alias the slot to the Tailwind variable; else bake.
+            const bv = bridgeRef(sv.color);
+            if (bv) {
+              slots[slot] = { type: "alias", tokenId: bv.id };
+            } else {
+              const resolved =
+                getTailwindHex(sv.color) ?? getTailwindUtility(sv.color)?.value ?? "";
+              slots[slot] = { type: "raw", value: resolved };
+            }
           } else {
             slots[slot] = { type: "raw", value: sv.value };
           }
@@ -209,6 +239,27 @@ export function buildFigmaTokensPayload(
     });
   }
 
+  // Emit the synthetic Tailwind variables: the whole theme in "full" mode,
+  // or just the tree-shaken set of referenced vars in "used" mode.
+  const bridgeVars: BridgeVar[] =
+    bridgeMode === "full"
+      ? allBridgeVars()
+      : bridgeMode === "used"
+        ? [...usedBridge.values()]
+        : [];
+  bridgeVars.forEach((bv, i) => {
+    const linked = ids.tokens[bv.id] ?? {};
+    tokens.push({
+      _id: bv.id,
+      collectionId: TAILWIND_BRIDGE_COLLECTION,
+      name: bv.name,
+      type: bv.type,
+      values: { default: { type: "raw", value: bv.value } },
+      figmaVariableId: linked.figmaId,
+      sortOrder: i,
+    });
+  });
+
   const spacingBase = (c: CollectionDoc) => {
     const gen = (c.generators ?? []).find((g) => g.type === "spacing");
     if (gen?.config.type !== "spacing") return null;
@@ -225,34 +276,51 @@ export function buildFigmaTokensPayload(
         breakpoints: system.fluid.breakpoints,
       },
     },
-    collections: collections.map((c, index) => {
-      const linked = ids.collections[c.name] ?? {};
-      const spacing = spacingBase(c);
-      const hasFluid = (c.generators ?? []).some(
-        (g) => g.type === "spacing" || g.type === "typography"
-      );
-      return {
-        _id: c.name,
-        name: c.name,
-        kind: collectionKind(c),
-        modes: c.modes,
-        sortOrder: index,
-        figmaCollectionId: linked.figmaId,
-        figmaFluidCollectionId: linked.figmaFluidId,
-        ...(hasFluid
-          ? {
-              spacingScaleConfig: {
-                viewport: {
-                  ...system.fluid.viewport,
-                  minFontSize: spacing?.baseMin ?? 18,
-                  maxFontSize: spacing?.baseMax ?? 20,
+    collections: [
+      ...collections.map((c, index) => {
+        const linked = ids.collections[c.name] ?? {};
+        const spacing = spacingBase(c);
+        const hasFluid = (c.generators ?? []).some(
+          (g) => g.type === "spacing" || g.type === "typography"
+        );
+        return {
+          _id: c.name,
+          name: c.name,
+          kind: collectionKind(c),
+          modes: c.modes,
+          sortOrder: index,
+          figmaCollectionId: linked.figmaId,
+          figmaFluidCollectionId: linked.figmaFluidId,
+          ...(hasFluid
+            ? {
+                spacingScaleConfig: {
+                  viewport: {
+                    ...system.fluid.viewport,
+                    minFontSize: spacing?.baseMin ?? 18,
+                    maxFontSize: spacing?.baseMax ?? 20,
+                  },
+                  breakpoints: system.fluid.breakpoints,
                 },
-                breakpoints: system.fluid.breakpoints,
-              },
-            }
-          : {}),
-      };
-    }),
+              }
+            : {}),
+        };
+      }),
+      // Synthetic, read-only Tailwind reference collection (bridge on).
+      ...(bridgeVars.length > 0
+        ? [
+            {
+              _id: TAILWIND_BRIDGE_COLLECTION,
+              name: TAILWIND_BRIDGE_COLLECTION,
+              kind: "regular" as const,
+              modes: ["default"],
+              sortOrder: collections.length,
+              readOnly: true,
+              figmaCollectionId:
+                ids.collections[TAILWIND_BRIDGE_COLLECTION]?.figmaId,
+            },
+          ]
+        : []),
+    ],
     tokens,
   };
 }

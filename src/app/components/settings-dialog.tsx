@@ -115,6 +115,49 @@ function GeneralSection({
 
       <Card>
         <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Tailwind → Figma</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            Materialize <code>{"{ $tw }"}</code> refs as a read-only
+            <b> Tailwind</b> variable collection in Figma and alias-link your
+            tokens to it, instead of baking them to raw values.
+          </p>
+          <Select
+            value={system.tailwindFigmaBridge ?? "off"}
+            onValueChange={(v) =>
+              v &&
+              void onSave({
+                tailwindFigmaBridge: v as SystemDoc["tailwindFigmaBridge"],
+              })
+            }
+          >
+            <SelectTrigger className="h-8 w-52 text-xs">
+              <SelectValue>
+                {system.tailwindFigmaBridge === "used"
+                  ? "Referenced only"
+                  : system.tailwindFigmaBridge === "full"
+                    ? "Full Tailwind theme"
+                    : "Off (bake to raw)"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="off" className="text-xs">
+                Off (bake to raw)
+              </SelectItem>
+              <SelectItem value="used" className="text-xs">
+                Referenced only (tree-shaken)
+              </SelectItem>
+              <SelectItem value="full" className="text-xs">
+                Full Tailwind theme
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
           <CardTitle className="text-sm">Export Layout</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-between gap-4">

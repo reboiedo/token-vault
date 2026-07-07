@@ -181,6 +181,15 @@ export interface SystemDoc {
   description?: string;
   fluid: { viewport: ViewportConfig; breakpoints: number[] };
   useTailwindColors?: boolean;
+  /**
+   * Materialize `$tw` references as a synthetic read-only "Tailwind"
+   * Figma variable collection on sync, alias-linking the referencing
+   * tokens instead of baking them to raw.
+   *   · "off"  (default) — bake `$tw` to raw (legacy behavior)
+   *   · "used" — emit only the referenced Tailwind vars (tree-shaken)
+   *   · "full" — emit the entire Tailwind default theme
+   */
+  tailwindFigmaBridge?: "off" | "used" | "full";
   exportLayout?: "single" | "per-collection";
   /** Collection names in display order (= files under collections/). */
   collections: CollectionRef[];

@@ -61,10 +61,20 @@ design-system/
     "breakpoints": [810, 1280]
   },
   "useTailwindColors": true,
+  "tailwindFigmaBridge": "used",        // "off" | "used" | "full"
   "exportLayout": "single",            // or "per-collection"
   "collections": ["core", "semantic"]  // filenames under collections/
 }
 ```
+
+`tailwindFigmaBridge` controls how `{"$tw": …}` refs cross into Figma on
+sync (mixed design systems that lean on Tailwind's theme):
+- `"off"` (default) — bake the ref to its raw value, as before.
+- `"used"` — materialize a synthetic **read-only `Tailwind` collection**
+  holding only the referenced vars (tree-shaken), and alias-link the
+  tokens to it so the chain survives in Figma.
+- `"full"` — same, but emit the entire Tailwind default theme so the
+  whole palette is browsable in Figma even before you reference it.
 
 `fluid.viewport` drives every fluid `clamp()` (Utopia-style
 interpolation). Changing it recomputes all fluid tokens.

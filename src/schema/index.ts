@@ -490,6 +490,7 @@ export const systemFileSchema = z.object({
     breakpoints: z.array(z.number()).default([]),
   }),
   useTailwindColors: z.boolean().optional(),
+  tailwindFigmaBridge: z.enum(["off", "used", "full"]).optional(),
   exportLayout: z.enum(["single", "per-collection"]).optional(),
   collections: z.array(z.string().min(1)),
 });
