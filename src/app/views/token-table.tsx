@@ -272,6 +272,8 @@ function InlineName({
     const next = draft.trim();
     if (next && next !== value) onCommit(next);
   };
+  // The input mirrors the display button's box (px-1 py-0.5, no border,
+  // intrinsic height) so entering edit mode doesn't shift the row.
   return (
     <Input
       autoFocus
@@ -282,7 +284,7 @@ function InlineName({
         if (e.key === "Enter") commit();
         if (e.key === "Escape") setEditing(false);
       }}
-      className="h-6 w-full max-w-56 font-mono text-xs"
+      className="h-auto w-full max-w-56 rounded border-0 bg-accent px-1 py-0.5 font-mono text-xs md:text-xs focus-visible:ring-1 focus-visible:ring-ring/50 dark:bg-accent"
     />
   );
 }
@@ -719,7 +721,7 @@ function AddModeCell({ collection }: { collection: CollectionDoc }) {
               setAdding(false);
             }
           }}
-          className="h-6 w-24 text-xs"
+          className="h-auto w-24 rounded border-0 bg-accent px-1 py-0.5 text-xs md:text-xs focus-visible:ring-1 focus-visible:ring-ring/50 dark:bg-accent"
         />
       ) : (
         <button
@@ -826,22 +828,6 @@ export function TokenTableView({
     readOnly: boolean
   ) => (
     <Fragment>
-      {tree.roots.map((node) => (
-        <GroupRows
-          key={node.path}
-          node={node}
-          depth={0}
-          collection={collection}
-          collapsed={collapsed}
-          toggle={toggle}
-          readOnly={readOnly}
-          width={width}
-          colSpan={colSpan}
-          autoFocusToken={effectiveFocus}
-          onCreated={setFocusName}
-          onEditDetails={onEditDetails}
-        />
-      ))}
       {tree.ungrouped.map((t) => (
         <TokenRow
           key={t.name}
@@ -858,6 +844,22 @@ export function TokenTableView({
           }
           onRemove={() => void actions.removeToken({ name: t.name })}
           onEditDetails={() => onEditDetails(t)}
+        />
+      ))}
+      {tree.roots.map((node) => (
+        <GroupRows
+          key={node.path}
+          node={node}
+          depth={0}
+          collection={collection}
+          collapsed={collapsed}
+          toggle={toggle}
+          readOnly={readOnly}
+          width={width}
+          colSpan={colSpan}
+          autoFocusToken={effectiveFocus}
+          onCreated={setFocusName}
+          onEditDetails={onEditDetails}
         />
       ))}
       {!readOnly && (
