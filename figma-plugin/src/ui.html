@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Token Vault</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 12px;
+        color: var(--figma-color-text);
+        background: var(--figma-color-bg);
+        padding: 16px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      h1 {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 16px;
+      }
+
+      .section {
+        margin-bottom: 16px;
+      }
+
+      label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: var(--figma-color-text-secondary);
+      }
+
+      input[type="text"] {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--figma-color-border);
+        border-radius: 6px;
+        font-size: 12px;
+        font-family: monospace;
+        background: var(--figma-color-bg);
+        color: var(--figma-color-text);
+      }
+
+      input[type="text"]:focus {
+        outline: none;
+        border-color: var(--figma-color-border-brand);
+      }
+
+      button {
+        width: 100%;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity 0.15s;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      button.primary {
+        background: var(--figma-color-bg-brand);
+        color: white;
+      }
+
+      button.primary:hover:not(:disabled) {
+        opacity: 0.9;
+      }
+
+      button.secondary {
+        background: var(--figma-color-bg-secondary);
+        color: var(--figma-color-text);
+      }
+
+      button.secondary:hover:not(:disabled) {
+        background: var(--figma-color-bg-tertiary);
+      }
+
+      button.danger {
+        background: transparent;
+        color: var(--figma-color-text-danger);
+        border: 1px solid var(--figma-color-border);
+      }
+
+      .status {
+        text-align: center;
+        padding: 12px;
+        border-radius: 6px;
+        background: var(--figma-color-bg-secondary);
+        margin-bottom: 16px;
+      }
+
+      .status .name {
+        font-weight: 600;
+        color: var(--figma-color-text);
+      }
+
+      .status .time {
+        color: var(--figma-color-text-secondary);
+        font-size: 11px;
+        margin-top: 4px;
+      }
+
+      .logs {
+        flex: 1;
+        background: var(--figma-color-bg-secondary);
+        border-radius: 6px;
+        padding: 12px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 11px;
+        min-height: 120px;
+        max-height: 200px;
+      }
+
+      .log-entry {
+        padding: 4px 0;
+        border-bottom: 1px solid var(--figma-color-border);
+      }
+
+      .log-entry:last-child {
+        border-bottom: none;
+      }
+
+      .log-entry.info {
+        color: var(--figma-color-text-secondary);
+      }
+
+      .log-entry.success {
+        color: var(--figma-color-text-success);
+      }
+
+      .log-entry.warning {
+        color: var(--figma-color-text-warning);
+      }
+
+      .log-entry.error {
+        color: var(--figma-color-text-danger);
+      }
+
+      .empty-logs {
+        color: var(--figma-color-text-tertiary);
+        text-align: center;
+        padding: 20px;
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--figma-color-border);
+        border-top-color: var(--figma-color-text);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .button-group {
+        display: flex;
+        gap: 8px;
+      }
+
+      .button-group button {
+        flex: 1;
+      }
+
+      .sync-btn-wrapper {
+        position: relative;
+        flex: 1;
+        display: flex;
+      }
+
+      .sync-btn-wrapper button {
+        flex: 1;
+      }
+
+      .badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background: var(--figma-color-bg-danger);
+        color: white;
+        font-size: 10px;
+        font-weight: 600;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 5px;
+      }
+
+      .updates-label {
+        font-size: 11px;
+        color: var(--figma-color-text-secondary);
+        text-align: center;
+        margin-bottom: 8px;
+      }
+
+      .updates-label.has-updates {
+        color: var(--figma-color-text-brand);
+        font-weight: 500;
+      }
+
+      .diff-container {
+        background: var(--figma-color-bg-secondary);
+        border-radius: 6px;
+        padding: 8px;
+        margin-bottom: 12px;
+        max-height: 140px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 11px;
+      }
+
+      .diff-item {
+        display: flex;
+        align-items: flex-start;
+        padding: 3px 0;
+        gap: 6px;
+      }
+
+      .diff-icon {
+        flex-shrink: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 11px;
+      }
+
+      .diff-icon.add {
+        background: rgba(52, 199, 89, 0.15);
+        color: #34c759;
+      }
+
+      .diff-icon.modify {
+        background: rgba(255, 159, 10, 0.15);
+        color: #ff9f0a;
+      }
+
+      .diff-content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .diff-name {
+        color: var(--figma-color-text);
+        word-break: break-word;
+      }
+
+      .diff-meta {
+        color: var(--figma-color-text-tertiary);
+        font-size: 10px;
+      }
+
+      .diff-rename {
+        color: var(--figma-color-text-secondary);
+        font-size: 10px;
+      }
+
+      .diff-rename .old {
+        text-decoration: line-through;
+        color: var(--figma-color-text-tertiary);
+      }
+
+      .diff-rename .arrow {
+        color: var(--figma-color-text-tertiary);
+        margin: 0 4px;
+      }
+
+      .log-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+      }
+
+      .log-header label {
+        margin-bottom: 0;
+      }
+
+      .copy-btn {
+        padding: 4px 8px;
+        font-size: 10px;
+        background: transparent;
+        border: 1px solid var(--figma-color-border);
+        color: var(--figma-color-text-secondary);
+        border-radius: 4px;
+        cursor: pointer;
+        width: auto;
+      }
+
+      .copy-btn:hover {
+        background: var(--figma-color-bg-secondary);
+        color: var(--figma-color-text);
+      }
+
+      .copy-btn.copied {
+        background: rgba(52, 199, 89, 0.15);
+        border-color: #34c759;
+        color: #34c759;
+      }
+
+      .auto-sync-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--figma-color-text-secondary);
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .auto-sync-row input[type="checkbox"] {
+        cursor: pointer;
+        margin: 0;
+      }
+
+      .auto-sync-label {
+        flex: 0 0 auto;
+      }
+
+      .auto-sync-indicator {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--figma-color-text-secondary);
+      }
+
+      .auto-sync-indicator .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #34c759;
+        box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.6);
+        animation: pulse 1.6s ease-out infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.6);
+        }
+        70% {
+          box-shadow: 0 0 0 8px rgba(52, 199, 89, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(52, 199, 89, 0);
+        }
+      }
+
+      .stale-container {
+        background: var(--figma-color-bg-secondary);
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 12px;
+      }
+
+      .stale-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+      }
+
+      .stale-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--figma-color-text);
+      }
+
+      .stale-subtitle {
+        font-size: 10px;
+        color: var(--figma-color-text-tertiary);
+        margin-bottom: 8px;
+        line-height: 1.4;
+      }
+
+      .stale-list {
+        max-height: 140px;
+        overflow-y: auto;
+        margin-bottom: 8px;
+      }
+
+      .stale-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+        font-size: 11px;
+      }
+
+      .stale-item input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      .stale-item label {
+        margin: 0;
+        font-weight: 400;
+        color: var(--figma-color-text);
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+
+      .stale-name {
+        font-family: monospace;
+        word-break: break-word;
+      }
+
+      .stale-meta {
+        font-size: 10px;
+        color: var(--figma-color-text-tertiary);
+      }
+
+      .stale-item.failed .stale-meta {
+        color: var(--figma-color-text-danger);
+      }
+
+      .stale-actions {
+        display: flex;
+        gap: 6px;
+      }
+
+      .stale-actions button {
+        padding: 6px 10px;
+        font-size: 11px;
+        flex: 1;
+        width: auto;
+      }
+
+      .stale-select-all {
+        font-size: 10px;
+        color: var(--figma-color-text-secondary);
+        cursor: pointer;
+        text-decoration: underline;
+        background: none;
+        border: none;
+        padding: 0;
+        width: auto;
+      }
+
+      .stale-select-all:hover {
+        color: var(--figma-color-text);
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="page-title">Token Vault</h1>
+
+    <!-- Connect Form (shown when not connected) -->
+    <div id="connect-form">
+      <div class="section">
+        <label for="api-key">API Key or local server</label>
+        <input type="text" id="api-key" placeholder="dsb_... or http://localhost:4477" />
+        <div style="margin-top: 6px; font-size: 10px; color: var(--figma-color-text-secondary, #888);">
+          Cloud: paste your Token Vault API key. Local: run
+          <code>npx token-vault dev</code> in your repo and enter its URL
+          (Figma desktop only).
+        </div>
+      </div>
+      <button id="connect-btn" class="primary">Connect & Sync</button>
+    </div>
+
+    <!-- Connected View (shown when connected) -->
+    <div id="connected-view" class="hidden">
+      <div class="status">
+        <div class="name" id="status-name">Connected</div>
+        <div class="time" id="status-time"></div>
+      </div>
+
+      <div id="updates-label" class="updates-label hidden"></div>
+
+      <div id="diff-container" class="diff-container hidden"></div>
+
+      <!-- Stale variables: variables in synced collections that this
+           sync didn't touch (likely orphans from renamed/deleted DSB
+           tokens). Default to nothing selected — user opts in to each
+           deletion. -->
+      <div id="stale-container" class="stale-container hidden">
+        <div class="stale-header">
+          <span class="stale-title" id="stale-title">Stale variables</span>
+          <button id="stale-select-all" class="stale-select-all">
+            Select all
+          </button>
+        </div>
+        <div class="stale-subtitle">
+          Variables in synced collections that don't match any DSB token.
+          Review before deleting — manually-authored ones look stale too.
+        </div>
+        <div class="stale-list" id="stale-list"></div>
+        <div class="stale-actions">
+          <button id="stale-dismiss" class="secondary">Dismiss</button>
+          <button id="stale-delete" class="danger" disabled>
+            Delete selected
+          </button>
+        </div>
+      </div>
+
+      <div class="section button-group">
+        <div class="sync-btn-wrapper">
+          <button id="sync-btn" class="primary">Sync Now</button>
+          <span id="badge" class="badge hidden">0</span>
+        </div>
+        <button id="disconnect-btn" class="danger">Disconnect</button>
+      </div>
+
+      <!-- Auto-sync toggle: polls every few seconds and re-runs sync.
+           Idempotent sync means no-op ticks are silent. -->
+      <label class="auto-sync-row">
+        <input type="checkbox" id="auto-sync-toggle" />
+        <span class="auto-sync-label">Auto-sync</span>
+        <span id="auto-sync-indicator" class="auto-sync-indicator hidden">
+          <span class="dot"></span>
+          watching
+        </span>
+      </label>
+    </div>
+
+    <!-- Sync Logs -->
+    <div class="section" style="flex: 1; display: flex; flex-direction: column;">
+      <div class="log-header">
+        <label>Sync Log</label>
+        <button id="copy-log-btn" class="copy-btn">Copy Log</button>
+      </div>
+      <div class="logs" id="logs">
+        <div class="empty-logs">No sync activity yet</div>
+      </div>
+    </div>
+
+    <script>
+      // State
+      let state = {
+        connected: false,
+        apiKey: null,
+        lastSync: null,
+        syncing: false,
+        pendingChanges: 0,
+        pendingChangesList: [],
+        checking: false,
+        designSystemName: null,
+        autoSync: false,
+        // Set of stale variable ids the user has checked for deletion.
+        staleSelected: new Set(),
+        // Current stale variable list — rebuilt on each sync-result.
+        staleVariables: [],
+        // Track ids the most recent delete attempt failed on, so the row
+        // can show an inline error and stay visible.
+        staleFailed: new Map(),
+        // Disable the section while a delete request is in flight.
+        staleDeleting: false,
+      };
+
+      // Elements
+      const pageTitle = document.getElementById("page-title");
+      const connectForm = document.getElementById("connect-form");
+      const connectedView = document.getElementById("connected-view");
+      const apiKeyInput = document.getElementById("api-key");
+      const connectBtn = document.getElementById("connect-btn");
+      const syncBtn = document.getElementById("sync-btn");
+      const disconnectBtn = document.getElementById("disconnect-btn");
+      const statusName = document.getElementById("status-name");
+      const statusTime = document.getElementById("status-time");
+      const logsContainer = document.getElementById("logs");
+      const badge = document.getElementById("badge");
+      const updatesLabel = document.getElementById("updates-label");
+      const diffContainer = document.getElementById("diff-container");
+      const copyLogBtn = document.getElementById("copy-log-btn");
+      const autoSyncToggle = document.getElementById("auto-sync-toggle");
+      const autoSyncIndicator = document.getElementById("auto-sync-indicator");
+      const staleContainer = document.getElementById("stale-container");
+      const staleTitle = document.getElementById("stale-title");
+      const staleList = document.getElementById("stale-list");
+      const staleSelectAllBtn = document.getElementById("stale-select-all");
+      const staleDeleteBtn = document.getElementById("stale-delete");
+      const staleDismissBtn = document.getElementById("stale-dismiss");
+
+      // Update UI based on state
+      function updateUI() {
+        // Title — show the design system name when connected (deduplicates
+        // with Figma's plugin chrome which already says "Token Vault" up top).
+        if (state.connected && state.designSystemName) {
+          pageTitle.textContent = state.designSystemName;
+        } else {
+          pageTitle.textContent = "Token Vault";
+        }
+
+        if (state.connected) {
+          connectForm.classList.add("hidden");
+          connectedView.classList.remove("hidden");
+
+          if (state.lastSync) {
+            const date = new Date(state.lastSync);
+            statusTime.textContent = `Last sync: ${formatRelativeTime(date)}`;
+          } else {
+            statusTime.textContent = "";
+          }
+        } else {
+          connectForm.classList.remove("hidden");
+          connectedView.classList.add("hidden");
+        }
+
+        // Disable buttons while syncing
+        connectBtn.disabled = state.syncing;
+        syncBtn.disabled = state.syncing;
+        disconnectBtn.disabled = state.syncing;
+
+        if (state.syncing) {
+          connectBtn.innerHTML = '<span class="spinner"></span>Syncing...';
+          syncBtn.innerHTML = '<span class="spinner"></span>Syncing...';
+        } else if (state.checking) {
+          syncBtn.innerHTML = '<span class="spinner"></span>Checking...';
+          connectBtn.textContent = "Connect & Sync";
+        } else {
+          connectBtn.textContent = "Connect & Sync";
+          syncBtn.textContent = "Sync Now";
+        }
+
+        // Auto-sync toggle reflects state; show the pulsing indicator only
+        // when the toggle is on AND we're connected (otherwise it's a no-op).
+        autoSyncToggle.checked = !!state.autoSync;
+        if (state.autoSync && state.connected) {
+          autoSyncIndicator.classList.remove("hidden");
+        } else {
+          autoSyncIndicator.classList.add("hidden");
+        }
+
+        // Update badge, label, and diff view
+        if (state.pendingChanges > 0 && !state.syncing) {
+          badge.textContent = state.pendingChanges;
+          badge.classList.remove("hidden");
+          updatesLabel.textContent = `${state.pendingChanges} update${state.pendingChanges > 1 ? "s" : ""} available`;
+          updatesLabel.classList.remove("hidden");
+          updatesLabel.classList.add("has-updates");
+          renderDiff(state.pendingChangesList);
+          diffContainer.classList.remove("hidden");
+        } else {
+          badge.classList.add("hidden");
+          updatesLabel.classList.add("hidden");
+          updatesLabel.classList.remove("has-updates");
+          diffContainer.classList.add("hidden");
+        }
+      }
+
+      // Render diff view
+      function renderDiff(changes) {
+        diffContainer.innerHTML = "";
+
+        for (const change of changes) {
+          const item = document.createElement("div");
+          item.className = "diff-item";
+
+          // Icon
+          const icon = document.createElement("div");
+          icon.className = `diff-icon ${change.type}`;
+          icon.textContent = change.type === "add" ? "+" : "~";
+          item.appendChild(icon);
+
+          // Content
+          const content = document.createElement("div");
+          content.className = "diff-content";
+
+          // Name
+          const name = document.createElement("div");
+          name.className = "diff-name";
+          name.textContent = change.name;
+          content.appendChild(name);
+
+          // Meta info (collection name for tokens, or "collection" label)
+          if (change.itemType === "token" && change.collectionName) {
+            const meta = document.createElement("div");
+            meta.className = "diff-meta";
+            meta.textContent = change.collectionName;
+            content.appendChild(meta);
+          } else if (change.itemType === "collection") {
+            const meta = document.createElement("div");
+            meta.className = "diff-meta";
+            meta.textContent = "collection";
+            content.appendChild(meta);
+          }
+
+          // Rename info
+          if (change.type === "modify" && change.oldName) {
+            const rename = document.createElement("div");
+            rename.className = "diff-rename";
+            rename.innerHTML = `<span class="old">${escapeHtml(change.oldName)}</span><span class="arrow">→</span>${escapeHtml(change.name)}`;
+            content.appendChild(rename);
+          }
+
+          item.appendChild(content);
+          diffContainer.appendChild(item);
+        }
+      }
+
+      // Escape HTML to prevent XSS
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // Add log entries
+      function addLogs(logs) {
+        // Clear empty state
+        const emptyState = logsContainer.querySelector(".empty-logs");
+        if (emptyState) {
+          emptyState.remove();
+        }
+
+        for (const log of logs) {
+          const entry = document.createElement("div");
+          entry.className = `log-entry ${log.type}`;
+          entry.textContent = log.message;
+          logsContainer.appendChild(entry);
+        }
+
+        // Scroll to bottom
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+      }
+
+      // Render the stale variables section from `state.staleVariables`.
+      // Rebuilds the list each call (cheap — counts are small) so we can
+      // reflect post-delete removals + per-row failure markers.
+      function renderStale() {
+        if (state.staleVariables.length === 0) {
+          staleContainer.classList.add("hidden");
+          state.staleSelected.clear();
+          state.staleFailed.clear();
+          return;
+        }
+        staleContainer.classList.remove("hidden");
+        staleTitle.textContent =
+          `Stale variables (${state.staleVariables.length})`;
+
+        staleList.innerHTML = "";
+        for (const v of state.staleVariables) {
+          const row = document.createElement("div");
+          row.className = "stale-item";
+          const failure = state.staleFailed.get(v.id);
+          if (failure) row.classList.add("failed");
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.id = `stale-${v.id}`;
+          checkbox.checked = state.staleSelected.has(v.id);
+          checkbox.disabled = state.staleDeleting;
+          checkbox.addEventListener("change", () => {
+            if (checkbox.checked) state.staleSelected.add(v.id);
+            else state.staleSelected.delete(v.id);
+            updateStaleControls();
+          });
+
+          const label = document.createElement("label");
+          label.htmlFor = checkbox.id;
+
+          const name = document.createElement("span");
+          name.className = "stale-name";
+          name.textContent = v.name;
+
+          const meta = document.createElement("span");
+          meta.className = "stale-meta";
+          meta.textContent = failure
+            ? `${v.collectionName} · ${failure}`
+            : `${v.collectionName} · ${v.resolvedType.toLowerCase()}`;
+
+          label.appendChild(name);
+          label.appendChild(meta);
+          row.appendChild(checkbox);
+          row.appendChild(label);
+          staleList.appendChild(row);
+        }
+        updateStaleControls();
+      }
+
+      function updateStaleControls() {
+        const count = state.staleSelected.size;
+        staleDeleteBtn.disabled = count === 0 || state.staleDeleting;
+        staleDeleteBtn.textContent = state.staleDeleting
+          ? "Deleting…"
+          : count > 0
+          ? `Delete selected (${count})`
+          : "Delete selected";
+
+        // Toggle the select-all link between "Select all" / "Clear" so it
+        // works as both shortcut and undo.
+        const allSelected =
+          state.staleVariables.length > 0 &&
+          state.staleSelected.size === state.staleVariables.length;
+        staleSelectAllBtn.textContent = allSelected ? "Clear" : "Select all";
+        staleSelectAllBtn.disabled = state.staleDeleting;
+        staleDismissBtn.disabled = state.staleDeleting;
+      }
+
+      // Format relative time
+      function formatRelativeTime(date) {
+        const now = new Date();
+        const diff = now - date;
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (days > 0) return `${days} day${days > 1 ? "s" : ""} ago`;
+        if (hours > 0) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+        if (minutes > 0) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+        return "Just now";
+      }
+
+      // Handle messages from plugin
+      window.onmessage = (event) => {
+        const msg = event.data.pluginMessage;
+        if (!msg) return;
+
+        switch (msg.type) {
+          case "state":
+            state.connected = msg.connected;
+            state.apiKey = msg.apiKey;
+            state.lastSync = msg.lastSync;
+            state.designSystemName = msg.designSystemName ?? state.designSystemName;
+            if (typeof msg.autoSync === "boolean") {
+              state.autoSync = msg.autoSync;
+            }
+            updateUI();
+            break;
+
+          case "auto-sync-tick":
+            // Quiet no-op tick — refresh just the timestamp.
+            state.lastSync = msg.lastSync;
+            updateUI();
+            break;
+
+          case "syncing":
+            state.syncing = msg.syncing;
+            updateUI();
+            break;
+
+          case "sync-result":
+            if (msg.result && msg.result.logs) {
+              addLogs(msg.result.logs);
+            }
+            if (msg.result && msg.result.designSystemName) {
+              state.designSystemName = msg.result.designSystemName;
+            }
+            // Refresh stale list if the sync carried one. Manual syncs
+            // populate it; auto-sync ticks leave it untouched.
+            if (msg.result && Array.isArray(msg.result.staleVariables)) {
+              state.staleVariables = msg.result.staleVariables;
+              state.staleSelected = new Set();
+              state.staleFailed = new Map();
+              renderStale();
+            }
+            // Reset pending changes after sync
+            state.pendingChanges = 0;
+            updateUI();
+            break;
+
+          case "delete-variables-result": {
+            state.staleDeleting = false;
+            const deletedSet = new Set(msg.deleted || []);
+            const failures = new Map();
+            for (const f of msg.failed || []) failures.set(f.id, f.error);
+            // Drop successfully-deleted ones; keep failed ones in the
+            // list with an inline error so the user can retry.
+            state.staleVariables = state.staleVariables.filter(
+              (v) => !deletedSet.has(v.id)
+            );
+            for (const id of deletedSet) state.staleSelected.delete(id);
+            state.staleFailed = failures;
+            renderStale();
+            if (deletedSet.size > 0) {
+              addLogs([
+                {
+                  type: "success",
+                  message: `Deleted ${deletedSet.size} stale variable(s)`,
+                },
+              ]);
+            }
+            if (failures.size > 0) {
+              addLogs([
+                {
+                  type: "error",
+                  message: `${failures.size} variable(s) couldn't be deleted — see list`,
+                },
+              ]);
+            }
+            break;
+          }
+
+          case "checking":
+            state.checking = msg.checking;
+            updateUI();
+            break;
+
+          case "pending-changes":
+            state.pendingChanges = msg.count;
+            state.pendingChangesList = msg.changes || [];
+            if (msg.designSystemName) {
+              state.designSystemName = msg.designSystemName;
+            }
+            updateUI();
+            break;
+        }
+      };
+
+      // Connect button
+      connectBtn.addEventListener("click", () => {
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+          addLogs([{ type: "error", message: "Please enter an API key" }]);
+          return;
+        }
+
+        parent.postMessage({ pluginMessage: { type: "connect", apiKey } }, "*");
+      });
+
+      // Sync button
+      syncBtn.addEventListener("click", () => {
+        parent.postMessage({ pluginMessage: { type: "sync" } }, "*");
+      });
+
+      // Disconnect button
+      disconnectBtn.addEventListener("click", () => {
+        parent.postMessage({ pluginMessage: { type: "disconnect" } }, "*");
+      });
+
+      // Auto-sync toggle
+      autoSyncToggle.addEventListener("change", () => {
+        const enabled = autoSyncToggle.checked;
+        state.autoSync = enabled; // optimistic — main will echo back
+        updateUI();
+        parent.postMessage(
+          { pluginMessage: { type: "set-auto-sync", enabled } },
+          "*"
+        );
+      });
+
+      // Stale variables: select-all / clear toggle.
+      staleSelectAllBtn.addEventListener("click", () => {
+        if (state.staleDeleting) return;
+        const allSelected =
+          state.staleSelected.size === state.staleVariables.length;
+        if (allSelected) {
+          state.staleSelected.clear();
+        } else {
+          for (const v of state.staleVariables) state.staleSelected.add(v.id);
+        }
+        renderStale();
+      });
+
+      // Stale variables: delete selected. Sends the batch to the main
+      // thread, which removes each and posts back a success/failure list.
+      staleDeleteBtn.addEventListener("click", () => {
+        if (state.staleSelected.size === 0 || state.staleDeleting) return;
+        const ids = Array.from(state.staleSelected);
+        state.staleDeleting = true;
+        renderStale();
+        parent.postMessage(
+          { pluginMessage: { type: "delete-variables", ids } },
+          "*"
+        );
+      });
+
+      // Stale variables: dismiss the whole section without deleting
+      // anything (e.g. user reviewed the list and is fine with all of
+      // them sticking around). The list comes back on the next manual
+      // sync.
+      staleDismissBtn.addEventListener("click", () => {
+        if (state.staleDeleting) return;
+        state.staleVariables = [];
+        state.staleSelected.clear();
+        state.staleFailed.clear();
+        renderStale();
+      });
+
+      // Copy log button
+      copyLogBtn.addEventListener("click", async () => {
+        const logEntries = logsContainer.querySelectorAll(".log-entry");
+        if (logEntries.length === 0) {
+          return;
+        }
+
+        // Build log text with timestamps and types
+        const logLines = [];
+        logLines.push("=== Token Vault Sync Log ===");
+        logLines.push(`Copied at: ${new Date().toISOString()}`);
+        if (state.connected && state.apiKey) {
+          logLines.push(`API Key: ${state.apiKey.substring(0, 10)}...`);
+        }
+        logLines.push("");
+
+        logEntries.forEach((entry) => {
+          const type = entry.classList.contains("error")
+            ? "[ERROR]"
+            : entry.classList.contains("success")
+            ? "[SUCCESS]"
+            : "[INFO]";
+          logLines.push(`${type} ${entry.textContent}`);
+        });
+
+        const logText = logLines.join("\n");
+
+        try {
+          await navigator.clipboard.writeText(logText);
+          copyLogBtn.textContent = "Copied!";
+          copyLogBtn.classList.add("copied");
+          setTimeout(() => {
+            copyLogBtn.textContent = "Copy Log";
+            copyLogBtn.classList.remove("copied");
+          }, 2000);
+        } catch (err) {
+          // Fallback for older browsers or if clipboard API fails
+          const textarea = document.createElement("textarea");
+          textarea.value = logText;
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand("copy");
+          document.body.removeChild(textarea);
+          copyLogBtn.textContent = "Copied!";
+          copyLogBtn.classList.add("copied");
+          setTimeout(() => {
+            copyLogBtn.textContent = "Copy Log";
+            copyLogBtn.classList.remove("copied");
+          }, 2000);
+        }
+      });
+
+      // Request initial state
+      parent.postMessage({ pluginMessage: { type: "get-state" } }, "*");
+
+      // Check for updates periodically (every 30 seconds)
+      setInterval(() => {
+        if (state.connected && !state.syncing && !state.checking) {
+          parent.postMessage({ pluginMessage: { type: "check-updates" } }, "*");
+        }
+      }, 30000);
+    </script>
+  </body>
+</html>

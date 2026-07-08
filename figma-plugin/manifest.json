@@ -1,0 +1,30 @@
+{
+  "name": "Token Vault",
+  "id": "token-vault",
+  "api": "1.0.0",
+  "main": "dist/main.js",
+  "ui": "dist/ui.html",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "editorType": [
+    "figma"
+  ],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://*.convex.site"
+    ],
+    "devAllowedDomains": [
+      "http://localhost:4470",
+      "http://localhost:4471",
+      "http://localhost:4472",
+      "http://localhost:4473",
+      "http://localhost:4474",
+      "http://localhost:4475",
+      "http://localhost:4476",
+      "http://localhost:4477",
+      "http://localhost:4478",
+      "http://localhost:4479"
+    ],
+    "reasoning": "Sync tokens with the Token Vault web app (cloud) or a local token-vault dev server (ports 4470-4479, per-project devPort)"
+  }
+}

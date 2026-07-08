@@ -7,6 +7,7 @@
  *   token-vault check  — validate the source files (CI-friendly)
  *   token-vault init   — scaffold a design-system/ folder   (F3)
  *   token-vault mcp    — MCP stdio server over the files     (F4)
+ *   token-vault figma  — print the bundled Figma plugin's manifest path
  */
 
 import { Command } from "commander";
@@ -44,13 +45,18 @@ function reportLoadError(err: unknown): never {
   process.exit(1);
 }
 
+const DEFAULT_PORT = 4477;
+
 program
   .command("dev")
   .description("Start the local editor")
   .option("-d, --dir <dir>", "design system folder", "design-system")
-  .option("-p, --port <port>", "port", "4477")
+  .option(
+    "-p, --port <port>",
+    `port (default: system.json devPort, else ${DEFAULT_PORT})`
+  )
   .option("--no-open", "do not open the browser")
-  .action(async (opts: { dir: string; port: string; open: boolean }) => {
+  .action(async (opts: { dir: string; port?: string; open: boolean }) => {
     const dir = resolveDir(opts.dir);
     let store: FileStore;
     try {
@@ -71,10 +77,17 @@ program
       }
     });
 
-    const port = Number(opts.port);
+    // Port precedence: explicit --port flag > system.json devPort > default.
+    const devPort = store.snapshot().system.devPort;
+    const [port, portSource] =
+      opts.port !== undefined
+        ? [Number(opts.port), "--port"]
+        : devPort !== undefined
+          ? [devPort, "system.json devPort"]
+          : [DEFAULT_PORT, "default"];
     await startServer(store, { port, appDir: APP_DIR });
     const url = `http://localhost:${port}`;
-    console.log(`● token-vault dev — ${url}`);
+    console.log(`● token-vault dev — ${url} (port from ${portSource})`);
     console.log(`  watching ${path.relative(process.cwd(), dir)}/`);
     if (opts.open) {
       const cmd =
@@ -160,6 +173,49 @@ program
     } catch (err) {
       reportLoadError(err);
     }
+  });
+
+program
+  .command("figma")
+  .description("Print the bundled Figma plugin's manifest path + install steps")
+  .option("-d, --dir <dir>", "design system folder (to read devPort)", "design-system")
+  .action(async (opts: { dir: string }) => {
+    const manifest = path.join(PKG_ROOT, "dist", "figma-plugin", "manifest.json");
+    const { existsSync } = await import("node:fs");
+    if (!existsSync(manifest)) {
+      console.error("✖ Figma plugin not found in this install (expected at");
+      console.error(`  ${manifest})`);
+      console.error("  Reinstall token-vault-studio, or run `pnpm build:plugin` in a source checkout.");
+      process.exit(1);
+    }
+    // This project's dev-server URL: system.json devPort if set (raw JSON
+    // read — the plugin URL should print even if the system fails checks).
+    let port = DEFAULT_PORT;
+    let portNote = "";
+    try {
+      const fs = await import("node:fs/promises");
+      const raw = JSON.parse(
+        await fs.readFile(path.join(resolveDir(opts.dir), "system.json"), "utf8")
+      ) as { devPort?: number };
+      if (typeof raw.devPort === "number") {
+        port = raw.devPort;
+        portNote = " (from system.json devPort)";
+      }
+    } catch {
+      // No design system here — the default-port instructions still hold.
+    }
+    const url = `http://localhost:${port}`;
+    console.log(manifest);
+    console.log("");
+    console.log("Install (once, Figma desktop):");
+    console.log("  Figma → Plugins → Development → Import plugin from manifest… → pick the path above");
+    console.log("Use:");
+    console.log(`  1. npx token-vault-studio dev       (this project's server: ${url}${portNote})`);
+    console.log(`  2. Run the Token Vault plugin in Figma and enter ${url}`);
+    console.log("");
+    console.log("Working on several projects? Give each its own devPort in system.json");
+    console.log("(the plugin allows http://localhost:4470–4479) — the plugin remembers");
+    console.log("the URL per Figma file, so projects stay isolated.");
   });
 
 program

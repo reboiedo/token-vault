@@ -77,20 +77,47 @@ them up live.
 
 ## Figma
 
-The Token Vault Figma plugin syncs tokens to Figma Variables and text
-styles straight from the local server: run `npx token-vault-studio dev`, open
-the plugin in **Figma desktop**, and enter `http://localhost:4477` in
-the connection field (instead of a cloud API key). Variable/collection
-ids are remembered in `design-system/.figma-ids.json` — commit it so
-re-syncs (by anyone on the team) update variables in place instead of
-duplicating. Renames cascade into it like any other reference.
+The Token Vault Figma plugin **ships inside this package** — every
+install carries the matching plugin build. Install it once per machine:
+
+```bash
+npx token-vault-studio figma
+# prints .../node_modules/token-vault-studio/dist/figma-plugin/manifest.json
+```
+
+then in **Figma desktop**: Plugins → Development → Import plugin from
+manifest… → pick the printed path. (See
+[`figma-plugin/README.md`](figma-plugin/README.md) for details.)
+
+To sync: run `npx token-vault-studio dev`, run the plugin, and enter
+your project's local URL (`http://localhost:4477` by default) in the
+connection field (instead of a cloud API key). It creates/updates Figma
+variable collections + variables, text styles, effect styles (shadows)
+and paint styles (gradients). Variable/collection ids are remembered in
+`design-system/.figma-ids.json` — commit it so re-syncs (by anyone on
+the team) update variables in place instead of duplicating. Renames
+cascade into it like any other reference.
+
+### One port per project (`devPort`)
+
+Working on several token-vault projects at once? Give each repo its own
+port so the plugin can never sync the wrong project into a Figma file:
+set `"devPort"` in `design-system/system.json` (or Settings → Dev server
+port in the studio) — `token-vault dev` picks it up automatically, and
+`token-vault figma` prints the exact URL to enter in the plugin.
+**Pick a port between 4470 and 4479**: the plugin's manifest allowlists
+that range (Figma has no port wildcard). The plugin stores the
+connection URL *inside each Figma file* (document plugin data), so every
+file keeps pointing at its own project — and teammates opening the file
+get the URL prefilled.
 
 ## Commands
 
 | Command | |
 |---|---|
 | `token-vault init [-n name]` | scaffold `design-system/` |
-| `token-vault dev [-p 4477] [-d dir]` | run the local editor |
+| `token-vault dev [-p port] [-d dir]` | run the local editor (port: `--port` > `devPort` in system.json > 4477) |
 | `token-vault build [-o out]` | bake DTCG to `dist/` |
 | `token-vault check` | validate source files (exit ≠ 0 on errors) |
+| `token-vault figma` | print the bundled Figma plugin's manifest path |
 | `token-vault mcp` | MCP stdio server for agents |
