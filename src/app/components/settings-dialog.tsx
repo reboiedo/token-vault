@@ -48,19 +48,40 @@ const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: "fluid", label: "Fluid Scales" },
 ];
 
+type SystemPatch = Omit<Partial<SystemDoc>, "devPort"> & { devPort?: number | null };
+
 function GeneralSection({
   system,
   onSave,
 }: {
   system: SystemDoc;
-  onSave: (patch: Partial<SystemDoc>) => Promise<void>;
+  onSave: (patch: SystemPatch) => Promise<void>;
 }) {
   const [name, setName] = useState(system.name);
   const [description, setDescription] = useState(system.description ?? "");
+  const [portDraft, setPortDraft] = useState(
+    system.devPort !== undefined ? String(system.devPort) : ""
+  );
   useEffect(() => {
     setName(system.name);
     setDescription(system.description ?? "");
-  }, [system.name, system.description]);
+    setPortDraft(system.devPort !== undefined ? String(system.devPort) : "");
+  }, [system.name, system.description, system.devPort]);
+
+  const commitPort = () => {
+    const trimmed = portDraft.trim();
+    if (trimmed === "") {
+      if (system.devPort !== undefined) void onSave({ devPort: null });
+      return;
+    }
+    const port = Number(trimmed);
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+      // Out of range — snap back to the saved value.
+      setPortDraft(system.devPort !== undefined ? String(system.devPort) : "");
+      return;
+    }
+    if (port !== system.devPort) void onSave({ devPort: port });
+  };
 
   const dirty =
     name !== system.name && name.trim() !== ""
@@ -237,6 +258,33 @@ function GeneralSection({
           </Select>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Dev server port</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            Port for <code>token-vault dev</code> in this project (blank =
+            4477). Give every project its own port — the Figma plugin
+            remembers a server URL per file, so ports keep projects from
+            syncing into the wrong document. Pick 4470–4479 (the plugin's
+            allowed range). Takes effect on the next{" "}
+            <code>token-vault dev</code>.
+          </p>
+          <Input
+            value={portDraft}
+            placeholder="4477"
+            inputMode="numeric"
+            className="h-8 w-24 text-xs"
+            onChange={(e) => setPortDraft(e.target.value)}
+            onBlur={commitPort}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitPort();
+            }}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -387,7 +435,7 @@ export function SettingsDialog({
   const [section, setSection] = useState<Section>("general");
 
   if (!system) return null;
-  const save = (patch: Partial<SystemDoc>) => actions.updateSystem(patch);
+  const save = (patch: SystemPatch) => actions.updateSystem(patch);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

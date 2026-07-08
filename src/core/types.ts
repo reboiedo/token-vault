@@ -201,6 +201,14 @@ export interface SystemDoc {
    */
   surfaceRecipes?: "off" | "css" | "dtcg" | "both";
   exportLayout?: "single" | "per-collection";
+  /**
+   * Default port for `token-vault dev` in THIS project (CLI `--port`
+   * still wins). Give every project its own port so the Figma plugin —
+   * which remembers a server URL per Figma document — never syncs the
+   * wrong project's tokens. The bundled plugin manifest allows
+   * http://localhost:4470–4479; pick within that range. Default: 4477.
+   */
+  devPort?: number;
   /** Collection names in display order (= files under collections/). */
   collections: CollectionRef[];
 }

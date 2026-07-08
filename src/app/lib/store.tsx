@@ -184,7 +184,11 @@ export interface Actions {
     collection: string;
     tailwind: CollectionDoc["tailwind"] | null;
   }): Promise<void>;
-  updateSystem(p: Partial<Pick<SystemDoc, "fluid" | "useTailwindColors" | "exportLayout" | "name" | "description">>): Promise<void>;
+  updateSystem(
+    p: Partial<
+      Pick<SystemDoc, "fluid" | "useTailwindColors" | "exportLayout" | "name" | "description">
+    > & { devPort?: number | null }
+  ): Promise<void>;
 }
 
 export function useActions(): Actions {

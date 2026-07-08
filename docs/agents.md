@@ -64,7 +64,10 @@ design-system/
   "tailwindFigmaBridge": "used",        // "off" | "used" | "full"
   "surfaceRecipes": "both",             // "off" | "css" | "dtcg" | "both"
   "exportLayout": "single",            // or "per-collection"
-  "collections": ["core", "semantic"]  // filenames under collections/
+  "collections": ["core", "semantic"], // filenames under collections/
+  "devPort": 4478                      // optional dev-server port (default 4477;
+                                       // pick 4470-4479 — the Figma plugin manifest
+                                       // allows that range; one port per project)
 }
 ```
 

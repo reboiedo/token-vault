@@ -493,6 +493,7 @@ export const systemFileSchema = z.object({
   tailwindFigmaBridge: z.enum(["off", "used", "full"]).optional(),
   surfaceRecipes: z.enum(["off", "css", "dtcg", "both"]).optional(),
   exportLayout: z.enum(["single", "per-collection"]).optional(),
+  devPort: z.number().int().min(1024).max(65535).optional(),
   collections: z.array(z.string().min(1)),
 });
 export type SystemFile = z.infer<typeof systemFileSchema>;

@@ -867,8 +867,19 @@ export class FileStore extends EventEmitter {
     exportLayout?: SystemDoc["exportLayout"];
     name?: string;
     description?: string;
+    /** null clears the field back to the 4477 default. */
+    devPort?: number | null;
   }): Promise<void> {
-    this.system = { ...this.system, ...p };
+    const { devPort, ...rest } = p;
+    this.system = { ...this.system, ...rest };
+    if (devPort === null) {
+      delete this.system.devPort;
+    } else if (devPort !== undefined) {
+      if (!Number.isInteger(devPort) || devPort < 1024 || devPort > 65535) {
+        throw new Error("devPort must be an integer between 1024 and 65535");
+      }
+      this.system.devPort = devPort;
+    }
     await this.commit([], { system: true });
   }
 

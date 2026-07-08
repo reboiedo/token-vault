@@ -83,6 +83,13 @@ describe("demo fixtures", () => {
     ).not.toThrow();
   });
 
+  it("system.json accepts a valid devPort and rejects out-of-range ones", () => {
+    const base = readJson(path.join(DEMO, "system.json"));
+    expect(() => systemFileSchema.parse({ ...base, devPort: 4478 })).not.toThrow();
+    expect(() => systemFileSchema.parse({ ...base, devPort: 80 })).toThrow();
+    expect(() => systemFileSchema.parse({ ...base, devPort: 4478.5 })).toThrow();
+  });
+
   for (const name of ["core", "semantic"]) {
     it(`collections/${name}.json validates and round-trips`, () => {
       const raw = readJson(path.join(DEMO, "collections", `${name}.json`));
