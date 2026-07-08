@@ -194,48 +194,73 @@ export class FileStore extends EventEmitter {
       return { ...c, tokens: [...generated, ...source] };
     });
 
-    // 2. Global resolver over source + generated tokens.
-    const resolver = buildResolver(withGenerated);
+    // 2 + 3. Surfaces materialization per themes collection, iterated to a
+    // fixed point. A surface may alias another surface's materialized token
+    // (a base anchored on another surface's level, a level anchored on
+    // another surface's base), so a single pass over the source-only
+    // resolver leaves those refs unresolved. Each pass rebuilds the global
+    // resolver over the previous pass's output; the Convex store converged
+    // the same way across successive saves — here it must happen in one
+    // recompute. Unresolvable refs materialize nothing, so passes only ever
+    // add or refine tokens and the loop stabilizes (capped as a cycle guard).
+    const hasSurfaces = withGenerated.some(
+      (c) => ((c.surfacesConfig as SurfacesConfig | undefined)?.surfaces.length ?? 0) > 0
+    );
+    if (!hasSurfaces) return withGenerated;
 
-    // 3. Surfaces materialization per themes collection.
-    return withGenerated.map((c) => {
-      const surfaces = c.surfacesConfig as SurfacesConfig | undefined;
-      if (!surfaces || surfaces.surfaces.length === 0) return c;
+    const MAX_SURFACE_PASSES = 4;
+    let view = withGenerated;
+    let prevSignature: string | null = null;
+    for (let pass = 0; pass < MAX_SURFACE_PASSES; pass++) {
+      const resolver = buildResolver(view);
+      const materializedSignature: Record<string, TokenDoc[]> = {};
 
-      const aliasOptions = resolver.aliasOptions(c.modes);
-      const resolveBaseHex = (ref: string, mode?: string) =>
-        resolver.resolveRaw(ref, mode);
-      const resolveScaleStep = makeResolveScaleStep(aliasOptions);
+      view = view.map((c) => {
+        const surfaces = c.surfacesConfig as SurfacesConfig | undefined;
+        if (!surfaces || surfaces.surfaces.length === 0) return c;
 
-      const surfaceTokens = generateSurfaceTokens(
-        surfaces,
-        c.modes,
-        resolveBaseHex,
-        { resolveScaleStep }
-      );
+        const aliasOptions = resolver.aliasOptions(c.modes);
+        const resolveBaseHex = (ref: string, mode?: string) =>
+          resolver.resolveRaw(ref, mode);
+        const resolveScaleStep = makeResolveScaleStep(aliasOptions);
 
-      const materialized: TokenDoc[] = surfaceTokens.map((st) => ({
-        name: st.name,
-        type: "color",
-        generated: true,
-        values: Object.fromEntries(
-          Object.entries(st.values).map(([mode, v]) => [
-            mode,
-            { type: "raw", value: v.value } satisfies TokenValue,
-          ])
-        ),
-      }));
+        const surfaceTokens = generateSurfaceTokens(
+          surfaces,
+          c.modes,
+          resolveBaseHex,
+          { resolveScaleStep }
+        );
 
-      // Materialized surface tokens replace any stale same-name entries.
-      const materializedNames = new Set(materialized.map((t) => t.name));
-      return {
-        ...c,
-        tokens: [
-          ...c.tokens.filter((t) => !materializedNames.has(t.name)),
-          ...materialized,
-        ],
-      };
-    });
+        const materialized: TokenDoc[] = surfaceTokens.map((st) => ({
+          name: st.name,
+          type: "color",
+          generated: true,
+          values: Object.fromEntries(
+            Object.entries(st.values).map(([mode, v]) => [
+              mode,
+              { type: "raw", value: v.value } satisfies TokenValue,
+            ])
+          ),
+        }));
+        materializedSignature[c.name] = materialized;
+
+        // Materialized surface tokens replace any stale same-name entries
+        // (including the previous pass's).
+        const materializedNames = new Set(materialized.map((t) => t.name));
+        return {
+          ...c,
+          tokens: [
+            ...c.tokens.filter((t) => !materializedNames.has(t.name)),
+            ...materialized,
+          ],
+        };
+      });
+
+      const signature = JSON.stringify(materializedSignature);
+      if (signature === prevSignature) break;
+      prevSignature = signature;
+    }
+    return view;
   }
 
   // ==========================================================================
